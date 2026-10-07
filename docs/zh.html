@@ -1,0 +1,2009 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>HD2 模組原理</title>
+<link rel="alternate" hreflang="en" href="index.html">
+<style>
+:root {
+  --bg: #15181d;
+  --panel: #1d2128;
+  --panel2: #252a33;
+  --line: #343b46;
+  --text: #e4e7ec;
+  --sub: #9aa3b0;
+  --accent: #ffe012;
+  --accent-ink: #1a1a1a;
+  --red: #e0463a;
+  --green: #4cc46a;
+  --blue: #6aa8ff;
+  --code-bg: #10131a;
+  --shadow: 0 1px 0 rgba(255,255,255,.03), 0 8px 24px rgba(0,0,0,.25);
+}
+:root[data-theme="light"] {
+  --bg: #f4f2ec;
+  --panel: #ffffff;
+  --panel2: #f0eee8;
+  --line: #d9d5cb;
+  --text: #1f2329;
+  --sub: #5d6570;
+  --accent: #b8960a;
+  --accent-ink: #ffffff;
+  --red: #c0352a;
+  --green: #2a8c45;
+  --blue: #2d6fd1;
+  --code-bg: #f3f1ea;
+  --shadow: 0 1px 2px rgba(0,0,0,.06);
+}
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; scroll-padding-top: 16px; }
+body {
+  margin: 0; background: var(--bg); color: var(--text);
+  font: 16px/1.75 "Segoe UI", "Microsoft JhengHei", "PingFang TC", "Noto Sans TC", sans-serif;
+}
+code, pre, .mono { font-family: "Cascadia Code", Consolas, "Courier New", monospace; }
+code { background: var(--code-bg); border: 1px solid var(--line); border-radius: 4px; padding: 0 5px; font-size: .88em; }
+pre { background: var(--code-bg); border: 1px solid var(--line); border-radius: 8px; padding: 14px 16px; overflow-x: auto; font-size: 13.5px; line-height: 1.6; }
+pre code { background: none; border: 0; padding: 0; }
+a { color: var(--blue); }
+h1, h2, h3, h4 { line-height: 1.3; margin: 0; }
+h2 { font-size: 1.6rem; margin: 0 0 6px; }
+h3 { font-size: 1.18rem; margin: 28px 0 8px; }
+h4 { font-size: 1rem; margin: 18px 0 4px; color: var(--accent); }
+p { margin: 8px 0; }
+ul, ol { padding-left: 1.4em; margin: 8px 0; }
+li { margin: 3px 0; }
+.lead { color: var(--sub); font-size: 1.05rem; margin-bottom: 18px; }
+
+/* layout */
+.wrap { display: grid; grid-template-columns: 250px minmax(0, 1fr); gap: 32px; max-width: 1240px; margin: 0 auto; padding: 0 24px; }
+nav.toc { position: sticky; top: 0; align-self: start; height: 100vh; overflow-y: auto; padding: 28px 0; }
+nav.toc .brand { display: flex; gap: 10px; align-items: center; margin-bottom: 18px; }
+nav.toc .brand img { width: 40px; height: 40px; border-radius: 8px; }
+nav.toc .brand b { font-size: .95rem; line-height: 1.25; }
+nav.toc a { display: block; color: var(--sub); text-decoration: none; padding: 4px 10px; border-left: 2px solid transparent; font-size: .92rem; }
+nav.toc a.sub { padding-left: 24px; font-size: .85rem; }
+nav.toc a:hover { color: var(--text); }
+nav.toc a.active { color: var(--text); border-left-color: var(--accent); background: var(--panel); }
+nav.toc .tools { margin-top: 18px; display: flex; gap: 8px; }
+main { padding: 28px 0 80px; min-width: 0; }
+section { margin: 0 0 56px; }
+.sec-kicker { color: var(--accent); font-size: .8rem; letter-spacing: .14em; text-transform: uppercase; font-weight: 600; }
+
+/* hero */
+.hero { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 28px; box-shadow: var(--shadow); margin-bottom: 44px; }
+.hero h1 { font-size: 2.1rem; }
+.hero .rule { width: 72px; height: 4px; background: var(--accent); margin: 14px 0; }
+.facts { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; margin-top: 18px; }
+.fact { background: var(--panel2); border-radius: 10px; padding: 10px 14px; }
+.fact .n { font-size: 1.35rem; font-weight: 700; }
+.fact .l { color: var(--sub); font-size: .82rem; }
+.shot { width: 100%; border-radius: 10px; border: 1px solid var(--line); margin-top: 18px; display: block; }
+
+/* cards */
+.card { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 18px 20px; box-shadow: var(--shadow); margin: 14px 0; }
+.grid2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 14px; }
+.card h4 { margin-top: 0; }
+.note { border-left: 3px solid var(--accent); background: var(--panel2); padding: 10px 14px; border-radius: 0 8px 8px 0; margin: 12px 0; }
+.warn { border-left-color: var(--red); }
+.tag { display: inline-block; font-size: .75rem; padding: 1px 8px; border-radius: 99px; border: 1px solid var(--line); color: var(--sub); white-space: nowrap; }
+.tag.hud { color: var(--accent); border-color: var(--accent); }
+.tag.fix { color: var(--red); border-color: var(--red); }
+.tag.re { color: var(--blue); border-color: var(--blue); }
+.tag.rel { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+
+/* buttons */
+button, .btn { font: inherit; font-size: .88rem; background: var(--panel2); color: var(--text); border: 1px solid var(--line); border-radius: 8px; padding: 5px 12px; cursor: pointer; }
+button:hover { border-color: var(--accent); }
+button.on { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+.seg { display: inline-flex; gap: 4px; flex-wrap: wrap; }
+
+/* tables */
+.tbl-wrap { overflow-x: auto; border: 1px solid var(--line); border-radius: 10px; margin: 12px 0; }
+table { border-collapse: collapse; width: 100%; font-size: .9rem; }
+th, td { text-align: left; padding: 7px 12px; border-bottom: 1px solid var(--line); vertical-align: top; }
+th { background: var(--panel2); font-weight: 600; white-space: nowrap; }
+tr:last-child td { border-bottom: 0; }
+td.num { font-variant-numeric: tabular-nums; text-align: right; white-space: nowrap; }
+
+/* tabs */
+.tabs { display: flex; gap: 6px; flex-wrap: wrap; margin: 14px 0 0; }
+.tabs button { border-radius: 8px 8px 0 0; }
+.tabpanel { display: none; }
+.tabpanel.show { display: block; }
+
+/* diagram */
+.diagram { width: 100%; height: auto; display: block; }
+.diagram text { font-family: "Segoe UI", "Microsoft JhengHei", sans-serif; }
+
+/* memory map */
+.memmap { display: flex; height: 54px; border-radius: 8px; overflow: hidden; border: 1px solid var(--line); margin: 12px 0 6px; }
+.memmap div { cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: .72rem; color: #111; font-weight: 600; border-right: 1px solid rgba(0,0,0,.25); transition: filter .15s; overflow: hidden; white-space: nowrap; }
+.memmap div:hover, .memmap div.sel { filter: brightness(1.25); outline: 2px solid var(--text); outline-offset: -2px; }
+.memaxis { display: flex; justify-content: space-between; color: var(--sub); font-size: .75rem; }
+.memdetail { min-height: 70px; }
+
+/* demos */
+.demo { display: grid; grid-template-columns: 260px 1fr; gap: 20px; align-items: center; }
+.demo svg { background: #0c0e12; border-radius: 10px; width: 100%; height: auto; }
+.ctrl { display: flex; flex-direction: column; gap: 10px; }
+.ctrl label { font-size: .88rem; color: var(--sub); }
+input[type=range] { width: 100%; accent-color: var(--accent); }
+.big { font-size: 1.6rem; font-weight: 700; }
+.swatches { display: grid; grid-template-columns: 110px repeat(3, 1fr); gap: 6px 10px; align-items: center; font-size: .85rem; }
+.sw { height: 34px; border-radius: 6px; border: 1px solid var(--line); display: flex; align-items: center; justify-content: center; font-size: .72rem; }
+
+/* plate fix stepper */
+.stepper { display: grid; grid-template-columns: 300px 1fr; gap: 20px; align-items: start; }
+.stepper svg { background: #0c0e12; border-radius: 10px; width: 100%; height: auto; }
+.stepinfo h4 { margin-top: 0; }
+.statusrow { display: flex; gap: 8px; flex-wrap: wrap; margin: 8px 0; }
+.pill { font-size: .78rem; padding: 2px 10px; border-radius: 99px; background: var(--panel2); border: 1px solid var(--line); }
+.pill.ok { border-color: var(--green); color: var(--green); }
+.pill.bad { border-color: var(--red); color: var(--red); }
+.bits { font-family: Consolas, monospace; font-size: .82rem; background: var(--code-bg); border: 1px solid var(--line); border-radius: 8px; padding: 8px 12px; margin-top: 8px; }
+
+/* timeline */
+.tl { position: relative; margin: 16px 0; padding-left: 26px; }
+.tl::before { content: ""; position: absolute; left: 8px; top: 4px; bottom: 4px; width: 2px; background: var(--line); }
+.tl-day { margin: 22px 0 6px -26px; font-weight: 700; color: var(--accent); }
+.tl-item { position: relative; margin: 8px 0; padding: 10px 14px; background: var(--panel); border: 1px solid var(--line); border-radius: 10px; }
+.tl-item::before { content: ""; position: absolute; left: -23px; top: 16px; width: 10px; height: 10px; border-radius: 50%; background: var(--panel); border: 2px solid var(--sub); }
+.tl-item[data-k="fix"]::before { border-color: var(--red); }
+.tl-item[data-k="hud"]::before { border-color: var(--accent); }
+.tl-item[data-k="re"]::before { border-color: var(--blue); }
+.tl-item .ver { font-family: Consolas, monospace; color: var(--sub); font-size: .82rem; margin-right: 6px; }
+.tl-item b { font-weight: 600; }
+.hidden { display: none !important; }
+
+details { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 10px 16px; margin: 10px 0; }
+details summary { cursor: pointer; font-weight: 600; }
+details[open] summary { margin-bottom: 6px; }
+
+/* code pairs */
+.codepair { display: grid; grid-template-columns: 1fr; gap: 10px; margin: 10px 0 18px; }
+.codepair > div { min-width: 0; }
+.codepair .cap { font-size: .78rem; color: var(--sub); margin-bottom: 4px; letter-spacing: .04em; }
+.codepair pre { margin: 0; font-size: 12.5px; }
+pre .c { color: #7f8a99; }
+:root[data-theme="light"] pre .c { color: #7a7f87; }
+pre .k { color: var(--accent); }
+.maskdemo { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; align-items: start; }
+.maskdemo label { display: flex; gap: 8px; align-items: center; font-size: .92rem; margin: 4px 0; }
+.maskdemo input[type=checkbox] { width: 18px; height: 18px; accent-color: var(--accent); }
+.maskout { font-family: Consolas, monospace; font-size: .9rem; background: var(--code-bg); border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; line-height: 1.9; }
+
+.part-banner { margin: 70px 0 26px; padding: 18px 22px; border-radius: 12px; background: var(--accent); color: var(--accent-ink); }
+.part-banner span { display: block; font-size: 1.5rem; font-weight: 800; }
+.part-banner small { font-size: .95rem; opacity: .85; }
+nav.toc .grp { margin: 14px 0 4px 10px; font-size: .74rem; letter-spacing: .1em; color: var(--accent); font-weight: 700; }
+.question { border-left: 3px solid var(--blue); background: var(--panel2); padding: 10px 14px; border-radius: 0 8px 8px 0; margin: 14px 0; }
+.question > b:first-child, .concepts > b:first-child, .hudlog > b:first-child, .takeaway > b:first-child { display: block; font-size: .78rem; letter-spacing: .1em; color: var(--sub); margin-bottom: 4px; }
+.concepts { border: 1px dashed var(--line); border-radius: 10px; padding: 10px 16px; margin: 14px 0; }
+.concepts dl { display: grid; grid-template-columns: max-content 1fr; gap: 4px 16px; margin: 0; }
+.concepts dt { font-weight: 700; }
+.concepts dd { margin: 0; color: var(--sub); }
+.hudlog { border-left: 3px solid var(--accent); background: var(--panel); border-radius: 0 10px 10px 0; padding: 12px 16px; margin: 20px 0 12px; box-shadow: var(--shadow); }
+.takeaway { background: var(--panel2); border-radius: 10px; padding: 10px 16px; margin: 12px 0; }
+.takeaway ol { margin: 4px 0; }
+details.quiz { border-color: var(--blue); }
+details.quiz summary::before { content: "？ "; color: var(--blue); }
+.chainbar { display: flex; flex-wrap: wrap; gap: 4px; margin: 6px 0 14px; font-size: .74rem; }
+.chainbar a { text-decoration: none; color: var(--sub); border: 1px solid var(--line); border-radius: 99px; padding: 1px 8px; }
+.chainbar a.on { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); font-weight: 700; }
+.chainbar .sep { color: var(--line); padding: 0 2px; }
+.hexview { font-family: Consolas, monospace; font-size: 12px; white-space: pre; overflow: auto; background: var(--code-bg); border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; line-height: 1.55; max-height: 360px; }
+.hexview .off { color: var(--sub); }
+.txt { font-family: Consolas, monospace; padding: 4px 8px; background: var(--panel2); color: var(--text); border: 1px solid var(--line); border-radius: 6px; }
+.inl { display: inline-flex; gap: 6px; align-items: center; color: var(--sub); font-size: .9rem; }
+pre .c { color: #7f8a99; }
+@media (max-width: 900px) { .concepts dl { grid-template-columns: 1fr; } .concepts dd { margin-bottom: 6px; } }
+code { overflow-wrap: anywhere; }
+pre code { overflow-wrap: normal; }
+.langswitch { position: fixed; top: 14px; right: 18px; z-index: 40; display: flex; border: 1px solid var(--line); border-radius: 99px; overflow: hidden; background: var(--panel); box-shadow: 0 4px 16px rgba(0,0,0,.35); font-size: .9rem; }
+.langswitch a, .langswitch span { padding: 6px 14px; text-decoration: none; color: var(--text); white-space: nowrap; }
+.langswitch a:hover { background: var(--panel2); }
+.langswitch .on { background: var(--accent); color: var(--accent-ink); font-weight: 700; }
+@media (max-width: 900px) { .langswitch { top: 10px; right: 10px; font-size: .82rem; } .langswitch a, .langswitch span { padding: 5px 11px; } }
+.menu-btn { display: none; }
+@media (max-width: 900px) {
+  .wrap { grid-template-columns: 1fr; padding: 0 16px; }
+  nav.toc { position: fixed; inset: 0 auto 0 0; width: 260px; background: var(--bg); z-index: 20; padding: 20px 14px; transform: translateX(-105%); transition: transform .2s; border-right: 1px solid var(--line); }
+  nav.toc.open { transform: none; }
+  .menu-btn { display: inline-block; position: fixed; right: 14px; bottom: 14px; z-index: 30; box-shadow: var(--shadow); }
+  .demo, .stepper, .codepair, .maskdemo { grid-template-columns: 1fr; }
+  .hero h1 { font-size: 1.6rem; }
+  .swatches { grid-template-columns: 80px repeat(3, 1fr); }
+}
+</style>
+</head>
+<body>
+<div class="langswitch" role="navigation" aria-label="Language"><span class="on" lang="zh-Hant">繁體中文</span><a href="index.html" hreflang="en" lang="en">English</a></div>
+<button class="menu-btn" id="menuBtn">目錄</button>
+<div class="wrap">
+<nav class="toc" id="toc">
+  <div class="brand"><b>HD2 模組原理<br><span style="color:var(--sub);font-weight:400">以 Hive Lord HUD 為例</span></b></div>
+  <a href="#m0">0. 地圖</a>
+  <div class="grp">A · 模組怎麼跑起來</div>
+  <a class="sub" href="#m1">1. 遊戲本身是什麼</a>
+  <a class="sub" href="#m2">2. 遊戲怎麼每一幀執行腳本</a>
+  <a class="sub" href="#m3">3. 誰來執行「別人寫的」Lua：Bingus Shared Loader</a>
+  <a class="sub" href="#m4">4. 模組在遊戲裡能做什麼：引擎 API</a>
+  <a class="sub" href="#m5">5. 引擎沒開放的事：LuaJIT FFI</a>
+  <a class="sub" href="#m6">6. 記憶體：資料住在哪裡</a>
+  <a class="sub" href="#m7">7. 遊戲資料的形狀：結構、系統、雜湊表</a>
+  <div class="grp">B · 怎麼知道遊戲裡有什麼</div>
+  <a class="sub" href="#m8">8. 離線讀遊戲檔案：FileDiver</a>
+  <a class="sub" href="#m9">9. 在遊戲裡觀察：Recon</a>
+  <a class="sub" href="#m10">10. 讀懂機器碼：逆向工程與組合語言</a>
+  <a class="sub" href="#m11">11. 讀取要安全、要正確</a>
+  <div class="grp">C · 做出來、交出去</div>
+  <a class="sub" href="#m12">12. 模組程式的骨架</a>
+  <a class="sub" href="#m13">13. 在電腦上假裝成遊戲：離線測試</a>
+  <a class="sub" href="#m14">14. 打包與部署：把程式變成 patch 檔</a>
+  <a class="sub" href="#m15">15. 多人連線與遊戲更新：模組的邊界</a>
+  <a class="sub" href="#m16">16. 反作弊：模組在什麼範圍裡運作</a>
+  <div class="grp">參考</div>
+  <a href="#history">開發時間線</a>
+  <a href="#method">開發方法</a>
+  <a href="#dropped">試過但放棄的</a>
+  <a href="#pitfalls">踩過的坑</a>
+  <a href="#files">檔案與部署</a>
+  <a href="#glossary">用語小辭典</a>
+  <div class="tools"><button id="themeBtn">切換淺色</button><a class="btn" href="index.html" hreflang="en" lang="en">English</a></div>
+</nav>
+
+<main>
+<div class="hero" id="top">
+  <div class="sec-kicker">Helldivers 2 · 模組原理</div>
+  <h1>Helldivers 2 模組是怎麼運作的</h1>
+  <div class="rule"></div>
+  <p class="lead">一個不是開發商寫的程式，怎麼會在遊戲裡執行？它怎麼知道遊戲的資料放在哪裡？做模組用的工具又各自是什麼原理？這份文件用<b>從零做出 Hive Lord HUD 的過程</b>當主線，一章講一個原理。每章結尾會告訴你「這時候 HUD 做到哪了」。</p>
+  <div class="facts">
+    <div class="fact"><div class="n">A 部分</div><div class="l">模組怎麼在遊戲裡跑起來（第 1–7 章）</div></div>
+    <div class="fact"><div class="n">B 部分</div><div class="l">怎麼知道遊戲裡有什麼（第 8–11 章）</div></div>
+    <div class="fact"><div class="n">C 部分</div><div class="l">怎麼做出來、交到玩家手上（第 12–16 章）</div></div>
+  </div>
+</div>
+
+<!-- ============================== M0 ============================== -->
+<section id="m0">
+  <div class="sec-kicker">第 0 章</div>
+  <h2>地圖：一個模組從想法到你的畫面</h2>
+  <p class="lead">先看全貌。一個模組的一生分成兩段：在<b>你的電腦上</b>把它做出來（製作期），以及在<b>遊戲裡</b>被執行（執行期）。圖上每一格標了講它的章節。</p>
+  <div class="card" style="padding:12px">
+  <svg class="diagram" viewBox="0 0 960 400" role="img" aria-label="模組的一生">
+    <defs><marker id="am0" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="var(--sub)"/></marker></defs>
+    <style>
+      .m0b { fill: var(--panel2); stroke: var(--line); stroke-width: 1.5; }
+      .m0p { fill: var(--panel2); stroke: var(--blue); stroke-width: 1.5; }
+      .m0r { fill: var(--panel2); stroke: var(--accent); stroke-width: 1.5; }
+      .m0t { fill: var(--text); font-size: 13px; font-weight: 600; }
+      .m0s { fill: var(--sub); font-size: 11px; }
+      .m0h { fill: var(--sub); font-size: 12px; font-weight: 700; letter-spacing: .08em; }
+      .m0l { stroke: var(--sub); stroke-width: 1.4; fill: none; marker-end: url(#am0); }
+    </style>
+    <text class="m0h" x="10" y="20">製作期 · 你的電腦</text>
+    <rect class="m0p" x="10" y="32" width="130" height="62" rx="8"/><text class="m0t" x="22" y="56">想法</text><text class="m0s" x="22" y="76">「我想看到血量」</text>
+    <rect class="m0p" x="170" y="32" width="150" height="62" rx="8"/><text class="m0t" x="182" y="56">研究遊戲</text><text class="m0s" x="182" y="76">FileDiver · Recon · 反組譯</text><text class="m0s" x="182" y="90">第 8–11 章</text>
+    <rect class="m0p" x="350" y="32" width="130" height="62" rx="8"/><text class="m0t" x="362" y="56">寫 Lua</text><text class="m0s" x="362" y="76">第 12 章</text>
+    <rect class="m0p" x="510" y="32" width="130" height="62" rx="8"/><text class="m0t" x="522" y="56">離線測試</text><text class="m0s" x="522" y="76">第 13 章</text>
+    <rect class="m0p" x="670" y="32" width="130" height="62" rx="8"/><text class="m0t" x="682" y="56">打包</text><text class="m0s" x="682" y="76">patch 檔 + manifest</text><text class="m0s" x="682" y="90">第 14 章</text>
+    <rect class="m0p" x="830" y="32" width="120" height="62" rx="8"/><text class="m0t" x="842" y="56">管理器部署</text><text class="m0s" x="842" y="76">寫進 data/</text><text class="m0s" x="842" y="90">第 3、14 章</text>
+    <path class="m0l" d="M140,63 H168"/><path class="m0l" d="M320,63 H348"/><path class="m0l" d="M480,63 H508"/><path class="m0l" d="M640,63 H668"/><path class="m0l" d="M800,63 H828"/>
+    <path class="m0l" d="M890,94 V150 H905"/>
+    <text class="m0h" x="10" y="140">執行期 · 遊戲裡</text>
+    <rect class="m0r" x="770" y="152" width="180" height="62" rx="8"/><text class="m0t" x="782" y="176">遊戲啟動、讀資源</text><text class="m0s" x="782" y="196">patch 蓋過原版 · 第 1 章</text>
+    <rect class="m0r" x="560" y="152" width="180" height="62" rx="8"/><text class="m0t" x="572" y="176">Loader 被執行</text><text class="m0s" x="572" y="196">找到並載入你的 Lua · 第 3 章</text>
+    <rect class="m0r" x="350" y="152" width="180" height="62" rx="8"/><text class="m0t" x="362" y="176">你的程式搭上 update()</text><text class="m0s" x="362" y="196">每一幀執行一次 · 第 2、4 章</text>
+    <rect class="m0r" x="140" y="152" width="180" height="62" rx="8"/><text class="m0t" x="152" y="176">讀遊戲資料</text><text class="m0s" x="152" y="196">引擎 API · FFI 讀記憶體 · 第 4–7 章</text>
+    <rect class="m0r" x="140" y="250" width="180" height="62" rx="8"/><text class="m0t" x="152" y="274">畫到螢幕</text><text class="m0s" x="152" y="294">引擎的 Gui · 第 4 章</text>
+    <path class="m0l" d="M770,183 H742"/><path class="m0l" d="M560,183 H532"/><path class="m0l" d="M350,183 H322"/><path class="m0l" d="M230,214 V248"/>
+    <rect class="m0b" x="350" y="250" width="290" height="62" rx="8"/><text class="m0t" x="362" y="274">範圍與限制</text><text class="m0s" x="362" y="294">讀取要安全（11）· 多人與更新（15）· 反作弊（16）</text>
+    <text class="m0s" x="10" y="350">藍框：在你的電腦上做，可以反覆試、成本低。黃框：發生在遊戲裡，每試一次都要重開遊戲。</text>
+    <text class="m0s" x="10" y="370">整份文件的核心觀念：能在藍框弄清楚的事，就不要拿到黃框去試。</text>
+  </svg>
+  </div>
+  <h3>每一章的長相</h3>
+  <ul>
+    <li><b>這一章要回答</b>：一個問題。整章都在回答它。</li>
+    <li><b>新概念</b>：這一章第一次出現的詞，最多五、六個，用到之前先說明。</li>
+    <li><b>內文</b>：盡量寫成「因為…所以…」，讓概念之間的關係看得見。</li>
+    <li><b>Hive Lord HUD 此時</b>：這個原理在做 HUD 時實際發生了什麼。</li>
+    <li><b>重點</b>與<b>自我檢查</b>：讀完先試著回答，再展開看答案。答不出來的，就是還沒建立起來的連結。</li>
+  </ul>
+  <div class="note">Hive Lord HUD 與 Dead Plate Fix 模組本身可以在 <a href="RELEASE_URL_PLACEHOLDER">GitHub Releases</a> 下載（zip 裡的 <code>Source/</code> 資料夾就是完整原始碼）。這份文件只講模組的原理。</div>
+</section>
+
+<div class="part-banner" id="partA"><span>A 部分：模組怎麼在遊戲裡跑起來</span><small>遊戲本體、腳本層、Loader、引擎 API、FFI、記憶體、資料結構</small></div>
+
+<!-- ============================== M1 ============================== -->
+<section id="m1">
+  <div class="sec-kicker">第 1 章 · 執行期</div>
+  <h2>遊戲本身是什麼</h2>
+  <div class="chainbar"><a href="#m1" class="on">1 遊戲本體</a><a href="#m2">2 腳本層</a><a href="#m3">3 Loader</a><a href="#m4">4 引擎 API</a><a href="#m5">5 FFI</a><a href="#m6">6 記憶體</a><a href="#m7">7 資料結構</a><span class="sep">|</span><a href="#m8">8 FileDiver</a><a href="#m9">9 Recon</a><a href="#m10">10 逆向</a><a href="#m11">11 安全讀取</a><span class="sep">|</span><a href="#m12">12 骨架</a><a href="#m13">13 測試</a><a href="#m14">14 打包部署</a><a href="#m15">15 邊界</a><a href="#m16">16 反作弊</a></div>
+  <div class="question"><b>這一章要回答</b>Helldivers 2 裝在你電腦裡的那些檔案是什麼？哪一個特性讓「模組」有可能存在？</div>
+  <div class="concepts"><b>新概念</b><dl>
+    <dt>機器碼、編譯</dt><dd>CPU 能直接執行的 bytes；把人寫的程式翻成機器碼的過程。</dd>
+    <dt>.exe、.dll、程序</dt><dd>裝機器碼的檔案（主程式、函式庫）；程式執行起來後的那個「活著的實體」。</dd>
+    <dt>引擎</dt><dd>做遊戲的共用底層：畫面、物理、讀檔、執行腳本。</dd>
+    <dt>資源、封存檔</dt><dd>模型、貼圖、音效、腳本等遊戲用的檔案，以及把它們打包起來的大檔案。</dd>
+    <dt>雜湊</dt><dd>把一段文字變成固定長度數字的公式。</dd>
+  </dl></div>
+
+  <h3>程式碼：編譯過的機器碼</h3>
+  <p>Arrowhead 的工程師用 C++ 寫遊戲（叫<b>原始碼</b>），再用<b>編譯器</b>翻成 CPU 能直接執行的<b>機器碼</b>。翻譯的過程中，變數名稱、函式名稱、註解全部消失，只剩一串 bytes。<b>因為</b>我們拿到的只有機器碼，<b>所以</b>想知道遊戲在做什麼，就得從機器碼往回推（第 10 章）。</p>
+  <p>機器碼裝在兩種檔案裡：<code>.exe</code> 是主程式，<code>.dll</code> 是主程式執行時載入的函式庫。Helldivers 2 的分工是：</p>
+  <div class="tbl-wrap"><table>
+    <thead><tr><th>檔案</th><th>是什麼</th></tr></thead>
+    <tbody>
+      <tr><td><code>bin/helldivers2.exe</code></td><td><b>引擎</b>：Autodesk Stingray（前身 Bitsquid）。負責畫面、物理、讀檔、執行 Lua 腳本。很多遊戲共用同一套引擎。</td></tr>
+      <tr><td><code>bin/game.dll</code></td><td><b>遊戲邏輯</b>：傷害、AI、網路同步，C++ 寫的，而且被加密保護（第 10 章）。</td></tr>
+      <tr><td><code>bin/lua51.dll</code></td><td><b>LuaJIT</b>：執行 Lua 腳本的程式（第 2 章）。</td></tr>
+      <tr><td><code>data/</code></td><td><b>資源檔</b>：其他所有東西。</td></tr>
+    </tbody>
+  </table></div>
+  <p>你按下「開始遊戲」，Windows 就把 <code>helldivers2.exe</code> 跑起來，變成一個<b>程序</b>，它再把 <code>game.dll</code>、<code>lua51.dll</code> 載入自己裡面。從這一刻起，引擎、遊戲邏輯、腳本都在同一個程序裡執行。</p>
+
+  <h3>資源：用雜湊找檔案</h3>
+  <p><code>data/</code> 裡是一堆名字像 <code>9ba626afa44a3aa3</code> 的<b>封存檔</b>，每個裡面裝著很多<b>資源</b>。引擎要一個資源時，不是用文字名稱找，而是用兩個數字：<b>型別雜湊</b>和<b>名稱雜湊</b>。</p>
+  <p><b>雜湊</b>是一個公式：同一段文字永遠算出同一個數字，但不能從數字反推回文字。HD2 用的公式叫 <b>murmur64</b>，算出 64 bit 的數字。例如 Hive Lord 的模型資源叫 <code>content/fac_bugs/cha_hive_lord/cha_hive_lord</code>，雜湊是 <code>0xD465D9C7F77A07CB</code>；型別「lua」的雜湊是 <code>0xA14E8DFA2CD117E2</code>。<b>因為</b>檔案裡只存數字，<b>所以</b>直接打開封存檔看不到任何名稱，要靠別人整理的名稱清單才能翻回來（第 8 章）。</p>
+  <div class="card">
+    <label style="color:var(--sub);font-size:.88rem">murmur64 試算：輸入任何文字</label>
+    <input id="hashIn" type="text" value="content/fac_bugs/cha_hive_lord/cha_hive_lord" spellcheck="false" class="txt" style="width:100%;margin-top:6px">
+    <div class="maskout" id="hashOut" style="margin-top:10px"></div>
+  </div>
+
+  <h3>讓模組成為可能的關鍵：patch 檔會蓋過原版</h3>
+  <p>封存檔裡有一種特別的：檔名結尾是 <code>.patch_0</code>、<code>.patch_1</code>…的 <b>patch 檔</b>。引擎讀資源時，如果 patch 檔裡有一個<b>型別和名稱都一樣</b>的資源，就用 patch 檔裡的版本，<b>蓋過</b>原版。這原本是給遊戲更新用的機制。</p>
+  <p><b>因為</b>引擎會乖乖讀任何放在 <code>data/</code> 裡的 patch 檔、而且不檢查內容有沒有被改過，<b>所以</b>任何人都能做一個 patch 檔，把某個資源換成自己的版本。所有 HD2 模組（換造型的、加功能的）都建立在這一點上。</p>
+
+  <div class="hudlog"><b>Hive Lord HUD 此時</b>只是一個想法（10/03）：「應該可以做一個 Hive Lord 血條，顯示主血和每塊裝甲的 HP。」遊戲本身不顯示這些，也沒有提供任何「讓你加介面」的功能。所以要做到，得讓<b>我們自己的程式</b>在遊戲裡執行。第一步就是知道：程式要放進 patch 檔，才進得了遊戲。</div>
+  <div class="takeaway"><b>重點</b><ol>
+    <li>遊戲是編譯過的機器碼，原始碼和名稱都不在我們手上。</li>
+    <li>資源用「型別 + 名稱」的雜湊來找，檔案裡看不到文字名稱。</li>
+    <li>patch 檔裡同名的資源會蓋過原版，而且遊戲不檢查，這是模組能存在的根本原因。</li>
+  </ol></div>
+  <details class="quiz"><summary>自我檢查：為什麼把一個 <code>.dds</code> 貼圖檔直接丟進 <code>data/</code> 不會有任何效果？</summary><p>引擎不認得散落的檔案，它只從封存檔裡、用「型別雜湊 + 名稱雜湊」找資源。要讓遊戲用你的貼圖，得把它包進一個 patch 封存檔，並且用跟原版<b>一模一樣的名稱雜湊</b>，才能蓋過原版。</p></details>
+  <details class="quiz"><summary>自我檢查：如果遊戲在讀 patch 檔時會檢查數位簽章，模組還能存在嗎？</summary><p>不能（至少不能用這種方式）。簽章檢查會發現 patch 檔不是官方的而拒絕載入。HD2 沒有做這個檢查，模組才有一扇門。</p></details>
+</section>
+
+<!-- ============================== M2 ============================== -->
+<section id="m2">
+  <div class="sec-kicker">第 2 章 · 執行期</div>
+  <h2>遊戲怎麼每一幀執行腳本</h2>
+  <div class="chainbar"><a href="#m1">1 遊戲本體</a><a href="#m2" class="on">2 腳本層</a><a href="#m3">3 Loader</a><a href="#m4">4 引擎 API</a><a href="#m5">5 FFI</a><a href="#m6">6 記憶體</a><a href="#m7">7 資料結構</a><span class="sep">|</span><a href="#m8">8 FileDiver</a><a href="#m9">9 Recon</a><a href="#m10">10 逆向</a><a href="#m11">11 安全讀取</a><span class="sep">|</span><a href="#m12">12 骨架</a><a href="#m13">13 測試</a><a href="#m14">14 打包部署</a><a href="#m15">15 邊界</a><a href="#m16">16 反作弊</a></div>
+  <div class="question"><b>這一章要回答</b>就算能把檔案放進遊戲，遊戲為什麼會「執行」它？什麼時候執行？</div>
+  <div class="concepts"><b>新概念</b><dl>
+    <dt>幀、遊戲迴圈</dt><dd>遊戲不停重複「更新 → 畫面」，每一次叫一幀。</dd>
+    <dt>函式</dt><dd>一段有名字、可以被呼叫的程式。</dd>
+    <dt>腳本語言、Lua、LuaJIT</dt><dd>以文字形式存在、執行時才被讀懂的程式；HD2 用的那一種；它的高速版本。</dd>
+    <dt>全域變數</dt><dd>整個腳本環境都看得到、都能改的變數。</dd>
+    <dt>update()</dt><dd>引擎每一幀呼叫的那個 Lua 函式。</dd>
+  </dl></div>
+
+  <h3>遊戲迴圈</h3>
+  <p>遊戲不停地重複：讀你的輸入 → 更新世界（怪物移動、子彈飛行）→ 畫出畫面。每重複一次叫一<b>幀</b>，60 FPS 就是每秒 60 幀。所有會「隨時間發生」的事，都發生在這個迴圈裡。</p>
+
+  <h3>引擎裡的腳本層</h3>
+  <p>Stingray 引擎內建一個 <b>Lua</b> 執行環境，用的是 <b>LuaJIT</b> 版本（語法等於 Lua 5.1）。Lua 是<b>腳本語言</b>：程式以純文字存在，執行時才由 LuaJIT 讀懂並執行，不必事先編譯。引擎原本的設計是讓遊戲邏輯大多寫在 Lua 裡；但 HD2 把幾乎所有邏輯都放進了 C++ 的 game.dll，Lua 只剩一層很薄的「膠水」：</p>
+  <ul>
+    <li>引擎啟動時會載入幾個 Lua 腳本（它們也是 <code>data/</code> 裡的資源，型別是 lua）。</li>
+    <li>引擎<b>每一幀</b>會呼叫一個叫 <code>update</code> 的 Lua 函式，還有 <code>render</code>、<code>shutdown</code> 等幾個固定的進入點。</li>
+    <li>引擎開放了一組 Lua 可以呼叫的功能（例如列出場景裡的物件、在畫面上畫東西），叫 <code>stingray.*</code> API（第 4 章）。</li>
+  </ul>
+  <p>CPU 模組量過：遊戲自己的 Lua <code>update</code> 每幀幾乎不花時間（接近 0 ms）。也就是說，遊戲本身幾乎不用這個 Lua 環境，但它<b>一直開著、每幀都在被呼叫</b>。</p>
+
+  <h3>為什麼這是模組的入口</h3>
+  <p>Lua 的函式存在<b>全域變數</b>裡，而全域變數是可以被改的。<b>因為</b>引擎每幀是「去全域變數 <code>update</code> 裡拿函式來呼叫」，<b>所以</b>只要有人把 <code>update</code> 換成自己的函式，引擎下一幀就會呼叫新的那個：</p>
+  <pre class="lua"><code>local original = update          -- 先把遊戲原本的 update 存起來
+update = function(...)            -- 換成我們的函式
+    do_my_stuff()                 -- 先做自己的事
+    return original(...)          -- 再呼叫原本的，遊戲照常運作
+end</code></pre>
+  <p>這種「把一個呼叫導到自己身上，再轉回原本的地方」的做法叫 <b>hook</b>。模組每一幀能做事，靠的就是這五行。</p>
+  <p>但這裡有一個前提：<b>這段程式本身得先被執行一次</b>，才能把 <code>update</code> 換掉。遊戲只會執行它自己知道的那幾個 Lua 腳本，不會去執行一個陌生的 Lua 資源。誰來執行第一次？這就是下一章的 Loader。</p>
+
+  <div class="hudlog"><b>Hive Lord HUD 此時</b>確定了做法：HUD 要用 Lua 寫，搭在 <code>update</code> 上每幀執行。整個 HUD 最後的入口（<code>H.install()</code>）就是本章那五行的加強版：多了錯誤保護（第 4 章）和自我計時。</div>
+  <div class="takeaway"><b>重點</b><ol>
+    <li>引擎內建 Lua，每一幀都會呼叫全域函式 <code>update</code>。</li>
+    <li>全域變數可以被改，所以換掉 <code>update</code> 就能每幀執行自己的程式（hook）。</li>
+    <li>但要先有人執行你的程式一次，它才有機會去換 <code>update</code>。</li>
+  </ol></div>
+  <details class="quiz"><summary>自我檢查：如果 hook 時忘了呼叫 <code>original(...)</code>，會發生什麼事？</summary><p>引擎每幀呼叫的就只剩你的函式，遊戲自己 Lua 層該做的事全部不做了。輕則某些功能失效，重則遊戲壞掉。所以一定要呼叫原本的函式，並把它的回傳值傳回去。</p></details>
+  <details class="quiz"><summary>自我檢查：HD2 的遊戲邏輯幾乎都在 C++ 裡，那 Lua 模組還能做什麼？</summary><p>Lua 層雖然薄，但它在遊戲程序裡、每幀被呼叫，而且能用引擎開放的 API。再加上第 5 章的 FFI，Lua 可以呼叫 Windows 的函式、直接讀遊戲的記憶體，所以能做的事遠超過「遊戲本身用 Lua 做的事」。</p></details>
+</section>
+
+<!-- ============================== M3 ============================== -->
+<section id="m3">
+  <div class="sec-kicker">第 3 章 · 執行期</div>
+  <span id="loader"></span>
+  <h2>誰來執行「別人寫的」Lua：Bingus Shared Loader</h2>
+  <div class="chainbar"><a href="#m1">1 遊戲本體</a><a href="#m2">2 腳本層</a><a href="#m3" class="on">3 Loader</a><a href="#m4">4 引擎 API</a><a href="#m5">5 FFI</a><a href="#m6">6 記憶體</a><a href="#m7">7 資料結構</a><span class="sep">|</span><a href="#m8">8 FileDiver</a><a href="#m9">9 Recon</a><a href="#m10">10 逆向</a><a href="#m11">11 安全讀取</a><span class="sep">|</span><a href="#m12">12 骨架</a><a href="#m13">13 測試</a><a href="#m14">14 打包部署</a><a href="#m15">15 邊界</a><a href="#m16">16 反作弊</a></div>
+  <div class="question"><b>這一章要回答</b>遊戲只執行它自己知道的腳本，那我們的 Lua 是怎麼被執行第一次的？</div>
+  <div class="concepts"><b>新概念</b><dl>
+    <dt>回呼（callback）</dt><dd>先把一個函式交給別人，讓對方在某個時機呼叫它。</dd>
+    <dt>Loader</dt><dd>負責找出所有模組並執行它們的模組。</dd>
+    <dt>require</dt><dd>Lua 載入另一個腳本資源並執行它的指令。</dd>
+    <dt>模組管理器</dt><dd>Arsenal、HD2MM：把模組寫成 <code>data/</code> 裡的 patch 檔的工具。</dd>
+    <dt>log</dt><dd>程式把發生的事寫成的文字檔。模組在遊戲裡執行時，你只能靠它知道發生了什麼。</dd>
+  </dl></div>
+
+  <h3>關鍵一步：借用一個一定會被執行的原版腳本</h3>
+  <p>把第 1 章和第 2 章接起來就能想到辦法：遊戲啟動時一定會載入某些原版 Lua 腳本，而 patch 檔可以用同名資源蓋過原版。<b>所以</b>只要做一個 patch 檔，裡面放一個<b>跟某個原版腳本同名</b>的 Lua 資源，遊戲就會在啟動時執行我們的版本。</p>
+  <p>Bingus Shared Loader 選的是 <code>core/wwise/lua/wwise_flow_callbacks</code>：音效系統（Wwise）啟動時一定會載入的<b>回呼</b>腳本。但原版腳本負責音效，被蓋掉了遊戲就沒聲音。<b>所以</b> Loader 裡面保留了原版腳本的所有功能，再多做「載入模組」這件事。</p>
+  <ul>
+    <li>遊戲的資源放在 <code>data/</code> 的封存檔裡，用「型別 + 名稱雜湊（murmur64）」定位。Mod 管理器（Arsenal / HD2MM）把模組部署成額外的 <code>9ba626afa44a3aa3.patch_N</code>，裡面同名的資源會<b>蓋過</b>原版。</li>
+    <li>Loader 的封存檔只有一個 lua 資源，名稱雜湊是 <code>0x7251FDD9BB62480A</code>。我們用同一套 murmur64 算過，正好是 <code>core/wwise/lua/wwise_flow_callbacks</code>：遊戲音效系統（Wwise）啟動時會 require 的原版腳本。</li>
+    <li>所以遊戲一開機載入音效系統，執行的就是 Loader。它裡面保留了原版腳本的所有 Wwise 回呼（<code>wwise_trigger_event</code>、<code>wwise_load_bank</code>…），音效照常運作；README 也特別說明它「保留 Wwise callbacks，不取代 boot」。</li>
+    <li>Loader 本體是編譯過的 LuaJIT bytecode（檔頭 <code>\x1bLJ</code>，約 20 KB）。以下流程是從 bytecode 裡的字串常數、README 和實際 log 整理出來的。</li>
+  </ul>
+
+  
+  <h3>Loader 啟動後做的事</h3>
+  <ol>
+    <li><b>放大 LuaJIT 的 JIT 快取</b>：所有模組共用遊戲的同一個 LuaJIT，預設快取太小，裝多了會一直被清空（flush）。v18 一開始就調到 16 MB / 8,000 段編譯好的程式（traces），被清空後再長到 64 MB / 16,000 段，並在 log 寫一行 <code>LuaJIT cache:</code>。</li>
+    <li><b>建立共用 log 資料夾</b> <code>%LOCALAPPDATA%\CowboyBingus\Helldivers2\Logs</code>，開啟 <code>BingusSharedLoader.log</code>。</li>
+    <li><b>建立全域表 <code>CowboyBingusModLoader</code></b>：放版本、API 等級、模組狀態清單、<code>open_log(檔名)</code>（只接受 <code>^[%w_-]+%.log$</code> 這種檔名，避免模組寫到別的路徑）、JIT 快取統計（<code>jit.flushes</code> 等）。</li>
+    <li><b>找到遊戲的 data 資料夾</b>：用 <code>GetModuleFileNameA</code> 取得執行檔路徑，確認結尾是 <code>/bin/helldivers2.exe</code>（不是就停止），推出 <code>/data/</code>。</li>
+    <li><b>掃描所有 patch 檔</b>：<code>FindFirstFileA</code> 列出 <code>9ba626afa44a3aa3.patch_*</code>，逐一打開，檢查封存檔魔數 <code>0xF0000011</code> 和表格，讀每個 lua 資源的開頭，用這個樣式比對第一行：
+      <pre><code>^%-%- HD2%-Addon: (mods/[A-Za-z0-9_]+/[A-Za-z0-9_/]+)</code></pre>
+      bytecode 裡還有一份 murmur64 實作（<code>hasher</code>），看起來會核對宣告的名稱和資源的雜湊是否一致（推測，未在原始碼確認）。</li>
+    <li><b>載入</b>：自動發現的 addon，加上一份內建的 CowboyBingus 模組清單，逐一用 <code>Application.can_get('lua', 名稱)</code> 檢查是否存在：不存在記 <code>not installed</code>；存在就 <code>pcall(require, 名稱)</code>，成功記 <code>loaded</code>，失敗記 <code>load failed: 原因</code>。</li>
+  </ol>
+  <p><code>BingusSharedLoader.log</code> 的範例（節錄）：</p>
+  <pre><code>Bingus Shared Loader loader-v18; API 1
+Discovery: 8 declared entries
+LuaJIT cache: expanded 16384 KB / 8000 traces; flushes 0, growth 0; watcher on
+mods/cowboybingus/vanilla_plus_megapack: loaded
+mods/cowboybingus/mod_options_menu: loaded
+mods/hivelordhud/hive_lord_hud: loaded       ← 我們的 HUD
+mods/hd2cpu/cpu_profiler: loaded             ← CPU 優化模組
+mods/hivelordhud/plate_fix: loaded           ← Dead Plate Fix
+mods/cowboybingus/consistent_vaulting: not installed
+…</code></pre>
+
+  
+
+  <h3>為什麼要有一個「共用」的 Loader</h3>
+  <p>同一個資源只能有一個 patch 勝出。如果每個模組都自己去蓋 <code>wwise_flow_callbacks</code>，就只有最後一個會生效，其他全部消失。<b>所以</b>社群用一個共用的 Loader 佔住這個入口，再由它依序載入所有模組。你的模組不需要蓋掉任何原版資源，只要放一個<b>新名稱</b>的 Lua 資源，第一行寫上 <code>-- HD2-Addon: …</code> 讓 Loader 找得到。</p>
+  <p>模組管理器（Arsenal、HD2MM）負責把每個模組寫成 <code>data/</code> 裡的一個 patch 檔。它每次部署都會<b>重新分配 patch 編號</b>，所以你不能假設自己的模組固定在某個編號（第 14 章會再遇到這件事）。</p>
+  <h3>模組怎麼配合 Loader</h3>
+  <div class="tbl-wrap"><table>
+    <thead><tr><th>用途</th><th>做法</th></tr></thead>
+    <tbody>
+      <tr><td>讓 Loader 找到我們</td><td>原始碼第一行寫 <code>-- HD2-Addon: mods/hivelordhud/hive_lord_hud</code>。<code>build_hive_lord.py</code> 打包時檢查這一行，並把它改成正確的資源名。</td></tr>
+      <tr><td>打包格式</td><td>每個 Arsenal 選項一個 patch 檔，裡面一個 lua 資源：名稱雜湊 = murmur64(資源名)，內容 = (長度, 2 = 純文字) + 原始碼。<b>必須是明文、無 BOM</b>（BOM：有些編輯器會在檔案開頭偷偷加上的 3 個 bytes）：編譯成 bytecode 會丟掉第一行註解，Loader 就找不到。</td></tr>
+      <tr><td>開始執行</td><td>被 require 時，檔案最上層只跑一次：先用全域變數擋重複載入（<code>HD2HiveLordHud</code> / <code>HD2HiveLordPlateFix</code>），再把自己包在全域 <code>update()</code> 外面。之後每幀的工作都在包裝函式裡，跟 Loader 就沒有關係了。</td></tr>
+      <tr><td>寫 log</td><td><code>CowboyBingusModLoader.open_log('HiveLordHud_&lt;時間&gt;.log')</code>，log 和其他 Bingus 模組放在同一個資料夾。沒有 Loader 時退回 <code>%TEMP%</code>。</td></tr>
+      <tr><td>設定選單</td><td>Mod Options Menu 也是一個透過 Loader 載入的模組（Megapack 內附），提供全域的 <code>ModOptionsMenu</code>。HUD 在 update 裡才去找它，因為載入順序不保證它比我們早。</td></tr>
+      <tr><td>除錯</td><td>模組沒反應時，第一步看 <code>BingusSharedLoader.log</code>：有沒有出現、是 <code>loaded</code> 還是 <code>load failed</code>。</td></tr>
+    </tbody>
+  </table></div>
+  <h3>沒有 Loader 還能用嗎？</h3>
+  <p><b>不能。</b>我們的模組只是一個叫 <code>mods/hivelordhud/hive_lord_hud</code> 的 lua 資源，遊戲本身沒有任何地方會 require 這個名字。沒有 Loader，資源會被部署進遊戲資料夾，但永遠不會被執行：不會報錯，也不會有任何效果。</p>
+  <ul>
+    <li>程式裡唯一對「沒有 Loader」做的備援，是 log 檔改寫到 <code>%TEMP%</code>。但前提還是模組有被載入，所以實際上用不到。</li>
+    <li>設定選單也會一起消失：Mod Options Menu 本身就是靠 Loader 載入的模組。</li>
+    <li>理論上可以學 Loader，自己換掉一個原版腳本當入口。但同一個資源只能有一個 patch 勝出，這樣會跟 Loader 和其他模組互相覆蓋，還得自己維護原版腳本的功能，所以不這樣做。這也是 Loader 存在的意義：讓所有模組共用一個入口，不必搶同一個原版腳本。</li>
+  </ul>
+  <p>所以安裝說明把 Bingus Shared Loader 列為必要的相依模組；Mod Options Menu（Megapack）則是選配，沒有它 HUD 會用預設值執行。</p>
+
+  
+  <div class="note warn"><b>容易踩的坑</b>
+    <ul>
+      <li>遊戲是 LuaJIT（Lua 5.1 語法）。<code>//</code> 整除、<code>string.pack</code>、<code>math.type</code> 這類 Lua 5.3 以後才有的東西都不能用；離線測試要用 LuaJIT 版的 lupa（在 Python 裡執行 Lua 的套件），否則測試會通過、進遊戲才 <code>load failed</code>。</li>
+      <li>所有模組共用同一個 Lua VM 和同一份 FFI 宣告：<code>ffi.cdef</code> 要包 <code>pcall</code>（別的模組可能先宣告過），全域變數名稱要獨特。</li>
+      <li>Arsenal 裡 Loader 要放在清單最下面（預設優先順序），換了順序要 Purge + Deploy。</li>
+      <li>Loader 綁定遊戲版本。遊戲大更新後要等 Loader 更新。</li>
+    </ul>
+  </div>
+
+  <div class="hudlog"><b>Hive Lord HUD 此時</b>的前 69 個版本，其實是跟我們的研究工具 Recon（第 9 章）打包在同一個模組裡，由 Loader 載入。到 v70 才獨立出來，有了自己的資源名稱 <code>mods/hivelordhud/hive_lord_hud</code>。之後的 Dead Plate Fix 則是第二個資源 <code>mods/hivelordhud/plate_fix</code>，在 Arsenal 裡是另一個可以單獨勾選的選項。</div>
+  <div class="takeaway"><b>重點</b><ol>
+    <li>Loader 用 patch 檔蓋掉一個「遊戲啟動一定會載入」的原版腳本，並保留它原本的功能。</li>
+    <li>Loader 再掃描所有 patch 檔，用第一行 <code>-- HD2-Addon:</code> 找出模組，逐一 <code>require</code>。</li>
+    <li>共用一個入口，所有模組才不會互相蓋掉。</li>
+  </ol></div>
+  <details class="quiz"><summary>自我檢查：如果你把模組的 Lua 編譯成 bytecode 再打包，會發生什麼事？</summary><p>Loader 認不出它：bytecode 會丟掉註解，第一行的 <code>-- HD2-Addon:</code> 就不見了。模組會被部署進遊戲，但永遠不會被執行，也不會出現在 Loader 的 log 裡。</p></details>
+  <details class="quiz"><summary>自我檢查：模組「沒反應」時，第一個該看哪個檔案？為什麼？</summary><p><code>BingusSharedLoader.log</code>。它記錄了每個模組有沒有被找到、是 <code>loaded</code> 還是 <code>load failed: 原因</code>。如果你的模組根本不在清單上，問題出在打包或部署；如果是 load failed，問題出在程式本身。</p></details>
+</section>
+
+<!-- ============================== M4 ============================== -->
+<section id="m4">
+  <div class="sec-kicker">第 4 章 · 執行期</div>
+  <h2>模組在遊戲裡能做什麼：引擎 API</h2>
+  <div class="chainbar"><a href="#m1">1 遊戲本體</a><a href="#m2">2 腳本層</a><a href="#m3">3 Loader</a><a href="#m4" class="on">4 引擎 API</a><a href="#m5">5 FFI</a><a href="#m6">6 記憶體</a><a href="#m7">7 資料結構</a><span class="sep">|</span><a href="#m8">8 FileDiver</a><a href="#m9">9 Recon</a><a href="#m10">10 逆向</a><a href="#m11">11 安全讀取</a><span class="sep">|</span><a href="#m12">12 骨架</a><a href="#m13">13 測試</a><a href="#m14">14 打包部署</a><a href="#m15">15 邊界</a><a href="#m16">16 反作弊</a></div>
+  <div class="question"><b>這一章要回答</b>程式進到遊戲、每幀被執行之後，它能看到什麼、能做什麼？做錯了會怎樣？</div>
+  <div class="concepts"><b>新概念</b><dl>
+    <dt>API</dt><dd>開放給別人呼叫的函式。這裡指引擎開放給 Lua 的 <code>stingray.*</code>。</dd>
+    <dt>world、unit、骨頭</dt><dd>場景；場景裡的物件；模型骨架的節點。</dd>
+    <dt>handle</dt><dd>代表某個東西的號碼牌，不是東西本身。</dd>
+    <dt>Gui、保留模式</dt><dd>引擎畫 2D 介面的功能；「建立一次、之後修改」的畫法。</dd>
+    <dt>pcall、assert</dt><dd>Lua 攔住錯誤的呼叫；引擎內部的自我檢查，失敗就直接結束遊戲。</dd>
+  </dl></div>
+
+  <h3>引擎給了什麼</h3>
+  <p>引擎把一部分功能開放給 Lua，叫 <b>API</b>。模組最常用的是這幾組：</p>
+  <ul>
+    <li><code>Application</code>：整個遊戲，例如 <code>Application.worlds()</code> 列出目前所有的 <b>world</b>（場景：船上、任務、選單各是一個）。</li>
+    <li><code>World</code> / <code>Unit</code>：<code>World.units(world)</code> 列出場景裡所有的 <b>unit</b>（一隻怪、一個玩家、一台攝影機都是 unit）。<code>Unit.resource_name(u)</code> 告訴你它用的是哪個模型資源（回傳雜湊）。<code>Unit.node(u, 'head')</code> 找到名叫 head 的<b>骨頭</b>，再讀它的位置。</li>
+    <li><code>Camera</code>：<code>Camera.world_to_screen</code> 把 3D 位置換成螢幕上的座標。</li>
+    <li><code>Gui</code>：在畫面上畫矩形、文字、三角形。</li>
+  </ul>
+  <p>要注意：腳本拿到的 unit 只是一個 <b>handle</b>（號碼牌），不是指向資料的位置。你可以拿它去問引擎問題，但不能從它直接走到怪物的血量資料。引擎也<b>沒有</b>開放「讀某個怪物的血量」這種 API。這件事決定了 HUD 後面的路（第 5 章）。</p>
+  <h3 id="hud-find">例子：HUD 怎麼找到 Hive Lord</h3>
+  <ul>
+    <li>每 2 秒掃一次 <code>Application.worlds()</code> 裡每個 world 的 <code>World.units()</code>，比對 <code>Unit.resource_name</code>。發行版回傳的是雜湊過的 IdString64，所以比對路徑字串 <code>hive_lord</code> 或雜湊 <code>d465d9c7f77a07cb</code>（= murmur64 of <code>content/fac_bugs/cha_hive_lord/cha_hive_lord</code>）。</li>
+    <li>剛出現的 world 要等 10 秒穩定才碰。<code>main_world()</code> 大約每 3 秒就換一次，不能拿來判斷。</li>
+    <li>HUD 畫在「單位最少的那個穩定 world」上（UI world；遊戲 world 有上千個單位）。world 一旦消失，它的 Gui 也跟著消失：只遺忘，絕不再呼叫 destroy。</li>
+    <li>單位值是 handle 不是指標，無法從單位直接走到元件記憶體，所以血量要另外找（下一節）。</li>
+    <li>Hive Lord 死後 2.5 秒淡出、再 1.5 秒就<b>完全不再碰那具屍體</b>，並記下它的位址，之後掃描直接跳過。這是為了避開一個會讓遊戲當掉的情況（見「踩過的坑」）。</li>
+  </ul>
+
+  
+
+  <h3>畫面：保留模式的 Gui</h3>
+  <p>引擎的 Gui 是<b>保留模式</b>：<code>Gui.rect(...)</code> 建立一個矩形，拿到一個編號；之後用 <code>Gui.update_rect(編號, ...)</code> 改它的位置、大小、顏色；不用了要銷毀。它<b>不是</b>每幀把畫面清空重畫。</p>
+  <ul>
+    <li>每個群組 0.35–0.6 秒淡入淡出，淡出完才銷毀。</li>
+    <li>圖元只有在顏色、大小、位置或文字改變時才送進 Gui；建立的那一幀不送更新（同一幀建立又更新的文字在遊戲裡不會出現）。</li>
+    <li>參數必須是真正的引擎物件：<code>Vector3(x, y, layer)</code>、<code>Vector2(w, h)</code>、<code>Color(a, r, g, b)</code>。</li>
+    <li>Low-poly 面板的每個面是一個真正的 <code>Gui.triangle</code>。它的點要寫成 <code>Vector3(x, 0, y)</code>（從 helldivers2.exe 反組譯確認：y 和 z 會互換）。如果建立三角形失敗，會自動退回用 2 px 的矩形條拼。</li>
+    <li>字型用基礎封存檔裡就有的 <code>core/performance_hud/debug</code>；粗體是同一段文字往右疊 1 px 的副本。</li>
+  </ul>
+
+  
+  <h4>互動示範：顏色校正</h4>
+  <p>螢幕 Gui 在遊戲的曝光 / 色調映射之前畫，顏色實際顯示會亮約 3 倍、暗部被壓掉（送 {96,2,18} 的暗紅，畫面上是 243,0,0；150–240 的灰全變成純白）。HUD 送出前先做反向換算：<code>送出值 = 想要的值 ÷ gain + black</code>，滑桿 100% 時 gain = 3、black = 18。下面用實測的放大模型（顯示 ≈ 3 × (送出 − 18)）模擬：</p>
+  <div class="card">
+    <label style="color:var(--sub);font-size:.88rem">Colour correction：<b id="cfOut">100%</b></label>
+    <input type="range" id="cfRange" min="0" max="150" step="10" value="100">
+    <div class="swatches" id="swatches" style="margin-top:12px"></div>
+  </div>
+
+  
+
+  <h3>做錯會怎樣：兩種錯誤</h3>
+  <ul>
+    <li><b>Lua 層的錯誤</b>（例如對 nil 做加法）：可以用 <code>pcall</code> 攔住。所以模組的每幀工作都包在 <code>pcall</code> 裡，出錯就永久關閉自己，遊戲照常。</li>
+    <li><b>引擎內部的錯誤</b>：引擎每個 API 裡面都有自我檢查（<b>assert</b>），參數不對、對象已經不存在，就<b>直接結束整個遊戲</b>。<code>pcall</code> 攔不住，因為錯誤根本沒有回到 Lua。</li>
+  </ul>
+  <p><b>因為</b>第二種錯誤無法挽救，<b>所以</b>模組必須在呼叫之前就確認不會出錯：world 還在不在、unit 還活著沒、參數格式對不對。這些規則幾乎都是當掉之後才學到的（見下面）。</p>
+
+  <div class="hudlog"><b>Hive Lord HUD 此時</b>連續當掉了好幾次，每次都教了一條規則：
+    <ul>
+      <li><b>v0</b>：每個 tick 都呼叫 <code>Gui.rect</code> 建立新矩形、從不銷毀，每秒累積約 2,400 個，遊戲 1 分鐘和 3.5 分鐘後硬當。改成保留模式的正確用法。</li>
+      <li><b>v27</b>：用遊戲的原生字型畫字，第一次繪製就當掉，還留下關不掉的遊戲程序，只能重開機。從此只用基礎資源裡的除錯字型。</li>
+      <li><b>v42–v64</b>：玩家死亡、Hive Lord 死後屍體被移除時，還在對已經消失的 unit 呼叫 API。改成每次呼叫前先 <code>Unit.alive(u)</code>，Hive Lord 死後完全不再碰它。</li>
+      <li><b>v40</b>：<code>Unit.world_position(u, 0)</code> 對所有單位都回傳原點，距離永遠是 0 m。改用具名骨頭（head、root）。</li>
+    </ul>
+  </div>
+  <div class="takeaway"><b>重點</b><ol>
+    <li>引擎 API 讓模組能看場景、找物件、畫畫面，但沒開放的事（例如讀血量）就做不到。</li>
+    <li>Lua 錯誤可以攔，引擎內部的錯誤會直接結束遊戲，所以要「呼叫前先確認」。</li>
+    <li>Gui 是保留模式：建立一次、之後修改、記得銷毀。</li>
+  </ol></div>
+  <details class="quiz"><summary>自我檢查：為什麼模組已經包了 <code>pcall</code>，HUD 還是會讓遊戲當掉？</summary><p>當掉的原因在引擎內部（assert 失敗、存取已經不存在的物件），錯誤沒有回到 Lua，<code>pcall</code> 根本沒機會攔。唯一的辦法是不讓這種呼叫發生。</p></details>
+  <details class="quiz"><summary>自我檢查：HUD 能用 <code>World.units</code> 找到 Hive Lord，為什麼還讀不到它的血量？</summary><p>拿到的只是一個 handle，不是資料的位置；引擎也沒有開放讀血量的 API。血量存在 game.dll 管理的記憶體裡，要用第 5 章的方法自己去讀。</p></details>
+</section>
+
+<!-- ============================== M5 ============================== -->
+<section id="m5">
+  <div class="sec-kicker">第 5 章 · 執行期</div>
+  <h2>引擎沒開放的事：LuaJIT FFI</h2>
+  <div class="chainbar"><a href="#m1">1 遊戲本體</a><a href="#m2">2 腳本層</a><a href="#m3">3 Loader</a><a href="#m4">4 引擎 API</a><a href="#m5" class="on">5 FFI</a><a href="#m6">6 記憶體</a><a href="#m7">7 資料結構</a><span class="sep">|</span><a href="#m8">8 FileDiver</a><a href="#m9">9 Recon</a><a href="#m10">10 逆向</a><a href="#m11">11 安全讀取</a><span class="sep">|</span><a href="#m12">12 骨架</a><a href="#m13">13 測試</a><a href="#m14">14 打包部署</a><a href="#m15">15 邊界</a><a href="#m16">16 反作弊</a></div>
+  <div class="question"><b>這一章要回答</b>引擎 API 拿不到的東西（例如血量），模組怎麼拿？</div>
+  <div class="concepts"><b>新概念</b><dl>
+    <dt>FFI</dt><dd>LuaJIT 的功能：從 Lua 直接呼叫 C 語言的函式、直接操作記憶體。</dd>
+    <dt>Windows API</dt><dd>Windows 開放給所有程式呼叫的函式，例如讀記憶體、開檔案、計時。</dd>
+    <dt>記憶體、位址</dt><dd>程式執行時放資料的地方；每個 byte 的編號。（第 6 章詳細說明）</dd>
+  </dl></div>
+
+  <h3>FFI 是什麼</h3>
+  <p>LuaJIT 有一個標準 Lua 沒有的功能：<b>FFI</b>（Foreign Function Interface）。它讓 Lua 直接呼叫 C 語言寫的函式，包括 <b>Windows API</b>，也能直接配置、讀寫一塊記憶體。遊戲帶的 <code>lua51.dll</code> 沒有把這個功能關掉。</p>
+  <pre class="lua"><code>local ffi = require('ffi')
+pcall(ffi.cdef, 'int QueryPerformanceCounter(int64_t* counter);')  -- 告訴 FFI 函式長什麼樣
+local kernel32 = ffi.load('kernel32')                               -- 載入函式所在的 dll
+local buf = ffi.new('int64_t[1]')                                   -- 配置一塊 C 記憶體
+kernel32.QueryPerformanceCounter(buf)                               -- 呼叫 Windows API
+print(tonumber(buf[0]))                                             -- 高精度計時器的值</code></pre>
+  <p>有了 FFI，模組能做的事一下子變成「一般 Windows 程式能做的事」：</p>
+  <ul>
+    <li>CPU Thread Optimizer 用它呼叫 Windows 的執行緒 API，決定遊戲執行緒跑在哪顆核心。</li>
+    <li>HUD 用它呼叫 <code>ReadProcessMemory</code>，讀遊戲程序自己的記憶體。</li>
+  </ul>
+
+  <h3>為什麼 FFI 也很危險</h3>
+  <ul>
+    <li><b>沒有安全網</b>：函式宣告錯、參數給錯、讀了不該讀的位址，遊戲直接當掉，<code>pcall</code> 攔不住（原因在第 6 章）。</li>
+    <li><b>所有模組共用一個 Lua 環境</b>：<code>ffi.cdef</code> 重複宣告會出錯，所以每個宣告都包 <code>pcall</code>；<code>ffi.load</code> 拿到的物件要一直留著，否則 dll 可能被卸載、函式失效。</li>
+    <li><b>能力等於一般程式</b>：一個惡意的 Lua 模組也能讀你的檔案、連網路。這是第 16 章「只裝可信模組」的原因。</li>
+  </ul>
+
+  <div class="hudlog"><b>Hive Lord HUD 此時</b>確定了「讀血量」只能走 FFI：用 <code>ReadProcessMemory</code> 讀遊戲記憶體。但問題馬上變成兩個：血量在記憶體的<b>哪裡</b>？那裡的資料<b>長什麼樣子</b>？要回答，得先懂記憶體（第 6 章）和遊戲怎麼組織資料（第 7 章）。</div>
+  <div class="takeaway"><b>重點</b><ol>
+    <li>FFI 讓 Lua 呼叫 Windows API、直接操作記憶體，是模組能做「引擎沒開放的事」的關鍵。</li>
+    <li>它沒有安全網，錯了遊戲直接當掉。</li>
+    <li>模組的能力因此等於一般程式，這同時是力量也是風險。</li>
+  </ol></div>
+  <details class="quiz"><summary>自我檢查：如果遊戲帶的 LuaJIT 把 FFI 關掉了，HUD 還做得出來嗎？</summary><p>血條和面板做不出來：引擎沒有讀血量的 API，只能靠 FFI 讀記憶體。標記、出土警告這類只用引擎 API 的部分還可以。</p></details>
+</section>
+
+<!-- ============================== M6 ============================== -->
+<section id="m6">
+  <div class="sec-kicker">第 6 章 · 執行期</div>
+  <h2>記憶體：資料住在哪裡</h2>
+  <div class="chainbar"><a href="#m1">1 遊戲本體</a><a href="#m2">2 腳本層</a><a href="#m3">3 Loader</a><a href="#m4">4 引擎 API</a><a href="#m5">5 FFI</a><a href="#m6" class="on">6 記憶體</a><a href="#m7">7 資料結構</a><span class="sep">|</span><a href="#m8">8 FileDiver</a><a href="#m9">9 Recon</a><a href="#m10">10 逆向</a><a href="#m11">11 安全讀取</a><span class="sep">|</span><a href="#m12">12 骨架</a><a href="#m13">13 測試</a><a href="#m14">14 打包部署</a><a href="#m15">15 邊界</a><a href="#m16">16 反作弊</a></div>
+  <div class="question"><b>這一章要回答</b>遊戲執行時，一個數字（例如血量）實際放在哪裡、長什麼樣子？為什麼讀錯位址會當掉？</div>
+  <div class="concepts"><b>新概念</b><dl>
+    <dt>byte、十六進位、int32</dt><dd>記憶體的最小單位；以 <code>0x</code> 開頭的寫法；4 bytes 的整數。</dd>
+    <dt>虛擬記憶體、分頁</dt><dd>每個程序自己的一套位址；以 4 KB 為單位管理。</dd>
+    <dt>存取違規</dt><dd>讀寫不存在或沒權限的位址，程式直接當掉。</dd>
+    <dt>程式碼區、資料區、堆積</dt><dd>dll 的機器碼；dll 裡固定位置的變數；執行中才配置的資料。</dd>
+    <dt>ASLR、基址、RVA</dt><dd>dll 每次載入位置不同；這次的位置；從 dll 開頭算起的位移。</dd>
+    <dt>指標</dt><dd>一個存著另一個位址的值。</dd>
+  </dl></div>
+
+  <h3>一個數字在記憶體裡的樣子</h3>
+  <p>記憶體是一長排格子，每格 1 <b>byte</b>（0–255），每格有一個編號叫<b>位址</b>。位址和內容習慣用<b>十六進位</b>寫（<code>0x</code> 開頭，每位 0–9、A–F）。血量這種整數通常用 4 bytes 存，叫 <b>int32</b>；而且「低位在前」，所以 150,000 = <code>0x000249F0</code> 在記憶體裡是 <code>F0 49 02 00</code>：</p>
+  <div class="card">
+    <label style="color:var(--sub);font-size:.88rem">輸入一個血量，看它在記憶體裡的樣子：</label>
+    <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:6px">
+      <input id="numIn" type="number" value="150000" style="font:inherit;width:160px;padding:4px 8px;background:var(--panel2);color:var(--text);border:1px solid var(--line);border-radius:6px">
+      <span class="seg"><button data-n="150000">主血滿 150000</button><button data-n="15000">板子 15000</button><button data-n="-1">裂開 -1</button><button data-n="-35000">摧毀 -35000</button></span>
+    </div>
+    <div class="maskout" id="numOut" style="margin-top:10px"></div>
+  </div>
+
+  <h3>每個程序有自己的一套位址</h3>
+  <p>程式看到的位址不是 RAM 條上的實際位置。Windows 給每個程序一套自己的<b>虛擬記憶體</b>，以 4 KB 的<b>分頁</b>為單位，對應到實體 RAM（或暫時放在 SSD 上）。</p>
+  <div class="card" style="padding:12px">
+  <svg class="diagram" viewBox="0 0 960 300" role="img" aria-label="虛擬記憶體對應示意圖">
+    <defs><marker id="ar4" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="var(--sub)"/></marker></defs>
+    <style>
+      .b4 { fill: var(--panel2); stroke: var(--line); stroke-width: 1.5; }
+      .b4a { fill: var(--panel2); stroke: var(--accent); stroke-width: 1.5; }
+      .b4b { fill: var(--panel2); stroke: var(--blue); stroke-width: 1.5; }
+      .pg { stroke: #0c0e12; stroke-width: 1; }
+      .t4 { fill: var(--text); font-size: 13.5px; font-weight: 600; }
+      .s4 { fill: var(--sub); font-size: 11.5px; }
+      .l4 { stroke: var(--sub); stroke-width: 1.3; fill: none; marker-end: url(#ar4); }
+    </style>
+    <!-- game virtual -->
+    <rect class="b4a" x="10" y="20" width="230" height="122" rx="8"/>
+    <text class="t4" x="24" y="44">遊戲的虛擬記憶體</text>
+    <text class="s4" x="24" y="62">位址 0 ~ 0x7FFF'FFFF'FFFF（128 TB）</text>
+    <rect class="pg" x="24" y="76" width="44" height="26" fill="#ffe012"/><rect class="pg" x="72" y="76" width="44" height="26" fill="#ffe012"/>
+    <rect class="pg" x="120" y="76" width="44" height="26" fill="#ffe012"/><rect class="pg" x="168" y="76" width="44" height="26" fill="#ffe012" opacity=".45"/>
+    <text class="s4" x="24" y="124">每格 = 一個分頁（4 KB）</text>
+    <!-- chrome virtual -->
+    <rect class="b4b" x="10" y="160" width="230" height="122" rx="8"/>
+    <text class="t4" x="24" y="184">瀏覽器的虛擬記憶體</text>
+    <text class="s4" x="24" y="202">同樣是 0 ~ 128 TB，彼此看不到</text>
+    <rect class="pg" x="24" y="216" width="44" height="26" fill="#6aa8ff"/><rect class="pg" x="72" y="216" width="44" height="26" fill="#6aa8ff"/>
+    <rect class="pg" x="120" y="216" width="44" height="26" fill="#6aa8ff" opacity=".45"/>
+    <text class="s4" x="24" y="264">同一個位址數字 ≠ 同一塊 RAM</text>
+    <!-- page table -->
+    <rect class="b4" x="330" y="80" width="230" height="140" rx="8"/>
+    <text class="t4" x="344" y="106">分頁表（每個程序一份）</text>
+    <text class="s4" x="344" y="128">作業系統填寫、CPU 每次存取時查</text>
+    <text class="s4" x="344" y="148">虛擬分頁 → 實體位置 + 權限</text>
+    <text class="s4" x="344" y="168">權限：可讀 / 可寫 / 可執行</text>
+    <text class="s4" x="344" y="188">沒對應的位址 → 存取違規（當掉）</text>
+    <text class="s4" x="344" y="208">不在 RAM 裡 → 分頁錯誤，去 SSD 拿</text>
+    <!-- physical -->
+    <rect class="b4" x="650" y="20" width="300" height="150" rx="8"/>
+    <text class="t4" x="664" y="44">實體 RAM（你買的 16 GB）</text>
+    <g>
+      <rect class="pg" x="664" y="60" width="40" height="26" fill="#6aa8ff"/><rect class="pg" x="708" y="60" width="40" height="26" fill="#ffe012"/>
+      <rect class="pg" x="752" y="60" width="40" height="26" fill="#3a4049"/><rect class="pg" x="796" y="60" width="40" height="26" fill="#ffe012"/>
+      <rect class="pg" x="840" y="60" width="40" height="26" fill="#6aa8ff"/><rect class="pg" x="884" y="60" width="40" height="26" fill="#3a4049"/>
+      <rect class="pg" x="664" y="90" width="40" height="26" fill="#3a4049"/><rect class="pg" x="708" y="90" width="40" height="26" fill="#ffe012"/>
+      <rect class="pg" x="752" y="90" width="40" height="26" fill="#3a4049"/><rect class="pg" x="796" y="90" width="40" height="26" fill="#3a4049"/>
+      <rect class="pg" x="840" y="90" width="40" height="26" fill="#3a4049"/><rect class="pg" x="884" y="90" width="40" height="26" fill="#3a4049"/>
+    </g>
+    <text class="s4" x="664" y="140">各程式的分頁散落在各處</text>
+    <text class="s4" x="664" y="158">灰色 = 空著或拿來當檔案快取</text>
+    <rect class="b4" x="650" y="190" width="300" height="92" rx="8"/>
+    <text class="t4" x="664" y="214">SSD 上的分頁檔</text>
+    <rect class="pg" x="664" y="226" width="40" height="22" fill="#ffe012" opacity=".45"/><rect class="pg" x="708" y="226" width="40" height="22" fill="#6aa8ff" opacity=".45"/>
+    <text class="s4" x="664" y="270">RAM 不夠時，較少用的分頁被搬來這裡</text>
+    <path class="l4" d="M240,80 C285,80 285,130 328,130"/>
+    <path class="l4" d="M240,230 C285,230 285,180 328,180"/>
+    <path class="l4" d="M560,120 C605,120 605,90 648,90"/>
+    <path class="l4" d="M560,180 C605,180 605,236 648,236"/>
+  </svg>
+  </div>
+  <p>這帶來三個對模組很重要的結果：</p>
+  <ol>
+    <li><b>外部程式碰不到遊戲的記憶體</b>：同一個位址在兩個程序裡是不同的 RAM。外部程式要讀遊戲，必須先向 Windows 申請遊戲的 handle（<code>OpenProcess</code>），再請 Windows 代讀。反作弊就在這一步攔截（第 16 章）。<b>但模組在遊戲程序裡面</b>，用的是遊戲自己的位址，不需要經過這一步。</li>
+    <li><b>讀錯位址會當掉</b>：如果某個位址沒有對應任何分頁，或分頁不允許讀，CPU 會觸發<b>存取違規</b>，程式立刻結束。這就是第 5 章說 FFI「沒有安全網」的原因。</li>
+    <li><b>程式碼不能直接改</b>：程式碼所在的分頁標記為「可讀、可執行、不可寫」，要改得先呼叫 <code>VirtualProtect</code> 改權限。</li>
+  </ol>
+  <details><summary>延伸：RAM 本身與快取</summary>
+    <p>RAM 是 CPU 的工作桌，速度比 SSD 快約 1,000 倍，但比 CPU 內建的快取慢很多：</p>
+    <div class="tbl-wrap"><table>
+    <thead><tr><th>層級</th><th>大小（你的 i9-13900H，約略）</th><th>拿一筆資料要多久（約略）</th><th>誰管</th></tr></thead>
+    <tbody>
+      <tr><td>暫存器</td><td>每個核心十幾個 64 位元格子</td><td>不到 1 奈秒</td><td>編譯器（就是組合語言裡的 <code>rax</code>、<code>rcx</code>）</td></tr>
+      <tr><td>L1 快取</td><td>每個 P 核心 48 KB 資料</td><td>約 1 奈秒</td><td>CPU 自動</td></tr>
+      <tr><td>L2 快取</td><td>每個 P 核心 1.25 MB</td><td>約 4 奈秒</td><td>CPU 自動</td></tr>
+      <tr><td>L3 快取</td><td>全部核心共用 24 MB</td><td>約 10–20 奈秒</td><td>CPU 自動</td></tr>
+      <tr><td>RAM</td><td>16 GB</td><td>約 80–100 奈秒</td><td>作業系統分配</td></tr>
+      <tr><td>SSD（分頁檔）</td><td>數百 GB</td><td>約 50–100 微秒（比 RAM 慢約 1,000 倍）</td><td>作業系統搬進搬出</td></tr>
+    </tbody>
+  </table></div>
+    <p>例如一台只插了一條 16 GB RAM（單通道）的筆電，遊戲在船上就可能用到 4.7–6.4 GB，系統剩下的可用 RAM 常常不到 1 GB。RAM 不夠時，Windows 會把較少用的分頁搬去 SSD，遊戲用到時要等 SSD 讀回來，就會頓幀。</p>
+  </details>
+
+  <h3>一個程序裡的三種區域</h3>
+  <div class="card" style="padding:12px">
+  <svg class="diagram" viewBox="0 0 960 330" role="img" aria-label="程序記憶體示意圖">
+    <defs><marker id="ar3" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="var(--accent)"/></marker></defs>
+    <style>
+      .b3 { fill: var(--panel2); stroke: var(--line); stroke-width: 1.5; }
+      .b3a { fill: var(--panel2); stroke: var(--accent); stroke-width: 1.5; }
+      .b3b { fill: var(--panel2); stroke: var(--blue); stroke-width: 1.5; }
+      .b3r { fill: var(--panel2); stroke: var(--red); stroke-width: 1.5; }
+      .t3 { fill: var(--text); font-size: 13.5px; font-weight: 600; }
+      .s3 { fill: var(--sub); font-size: 11.5px; }
+      .l3 { stroke: var(--accent); stroke-width: 1.8; fill: none; marker-end: url(#ar3); }
+    </style>
+    <text class="s3" x="10" y="20">遊戲程序的記憶體空間（示意，不按比例）</text>
+    <!-- game.dll image -->
+    <rect class="b3" x="10" y="34" width="330" height="270" rx="10"/>
+    <text class="t3" x="24" y="58">game.dll（載入位址每次啟動都不同）</text>
+    <rect class="b3b" x="24" y="72" width="302" height="92" rx="6"/>
+    <text class="t3" x="36" y="94">程式碼區（.text）</text>
+    <text class="s3" x="36" y="114">機器碼：傷害函式、遮罩更新函式…</text>
+    <text class="s3" x="36" y="132">唯讀、可執行。GameGuard 會檢查</text>
+    <text class="s3" x="36" y="150">它有沒有被改（雜湊）</text>
+    <rect class="b3a" x="24" y="178" width="302" height="112" rx="6"/>
+    <text class="t3" x="36" y="200">資料區（.data）：全域變數</text>
+    <text class="s3" x="36" y="220">固定位置，可讀寫。例如：</text>
+    <text class="s3" x="36" y="240">基址 + 0x3326688 → 存著「健康系統在哪」</text>
+    <text class="s3" x="36" y="258">基址 + 0x3326708 → 存著「遮罩系統在哪」</text>
+    <text class="s3" x="36" y="276">位置固定，所以找到一次就能一直用</text>
+    <!-- heap -->
+    <rect class="b3" x="420" y="34" width="530" height="270" rx="10"/>
+    <text class="t3" x="434" y="58">堆積（heap）：執行中動態配置的資料</text>
+    <rect class="b3" x="434" y="76" width="230" height="96" rx="6"/>
+    <text class="t3" x="446" y="98">健康系統</text>
+    <text class="s3" x="446" y="118">key 表：哪隻怪 → 第幾筆</text>
+    <text class="s3" x="446" y="136">紀錄陣列的位址</text>
+    <text class="s3" x="446" y="154">位置每場不同、還會搬家</text>
+    <rect class="b3r" x="700" y="76" width="236" height="150" rx="6"/>
+    <text class="t3" x="712" y="98">紀錄陣列（每隻怪一筆）</text>
+    <text class="s3" x="712" y="120">第 0 筆：某隻小蟲</text>
+    <text class="s3" x="712" y="138">第 1 筆：某個機器人</text>
+    <text class="s3" x="712" y="156" style="fill:var(--red)">第 6 筆：Hive Lord</text>
+    <text class="s3" x="724" y="174">+0x14 主血 = 118,350</text>
+    <text class="s3" x="724" y="192">+0xF8 區域 HP × 38</text>
+    <text class="s3" x="712" y="212">…</text>
+    <rect class="b3" x="434" y="196" width="230" height="94" rx="6"/>
+    <text class="t3" x="446" y="218">遮罩系統</text>
+    <text class="s3" x="446" y="238">每個單位一筆：模型的哪些</text>
+    <text class="s3" x="446" y="256">零件要畫、哪些要藏</text>
+    <text class="s3" x="446" y="274">（Plate Fix 寫的地方）</text>
+    <!-- arrows -->
+    <path class="l3" d="M326,232 C380,232 380,124 432,124"/>
+    <path class="l3" d="M326,256 C390,256 390,243 432,243"/>
+    <path class="l3" d="M664,124 H698"/>
+  </svg>
+  </div>
+  <ul>
+    <li><b>程式碼區</b>：dll 的機器碼，執行中不變。</li>
+    <li><b>資料區</b>：dll 裡固定位置的變數（<b>全域變數</b>），整場遊戲都在同一個地方。</li>
+    <li><b>堆積</b>：遊戲執行中才配置的資料，例如每隻怪的血量。位置每場都不同，還可能被遊戲搬家。</li>
+  </ul>
+  <p>還有兩件事讓「找到血量」變難：</p>
+  <ul>
+    <li><b>ASLR</b>：Windows 每次啟動都把 dll 放在不同的位址（防止攻擊）。所以不能記「血量在 0x7FFF…」這種絕對位址，只能記「從 dll 開頭算起第幾個 byte」，叫 <b>RVA</b>。實際位址 = 這次的<b>基址</b> + RVA。</li>
+    <li><b>指標</b>：堆積上的資料位置不固定，但資料區裡的全域變數會<b>存著</b>它的位址。這種「存著位址的值」叫指標。從固定的全域變數出發，沿著指標一路找下去，就能找到每場位置都不同的資料。</li>
+  </ul>
+  <div class="card">
+    <label style="color:var(--sub);font-size:.88rem">試試看：輸入一個位址，看它落在哪個分頁（分頁大小 4 KB = 0x1000）</label>
+    <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:6px">
+      <input id="addrIn" type="text" value="0x7FFFB973EB78" spellcheck="false" style="font-family:Consolas,monospace;width:230px;padding:4px 8px;background:var(--panel2);color:var(--text);border:1px solid var(--line);border-radius:6px">
+      <span style="color:var(--sub);font-size:.85rem">（預設值是 10/02 那次 game.dll 的 update 函式指標所在位置）</span>
+    </div>
+    <div class="maskout" id="addrOut" style="margin-top:10px"></div>
+  </div>
+
+  <div class="hudlog"><b>Hive Lord HUD 此時</b>知道了目標：Hive Lord 的血量是一個 int32，放在遊戲程序的堆積上某處，位置每場都不同。要穩定找到它，需要一個固定的起點（game.dll 資料區的某個全域變數，以 RVA 記住），再沿著指標找下去。但要知道「指標指到的那一大塊資料裡，哪 4 bytes 才是主血」，得懂遊戲怎麼組織資料（第 7 章）。</div>
+  <div class="takeaway"><b>重點</b><ol>
+    <li>數字在記憶體裡就是幾個 bytes，int32 是 4 bytes、低位在前。</li>
+    <li>每個程序有自己的虛擬記憶體；外部程式要讀得經過 Windows，模組在裡面則不用。</li>
+    <li>讀錯位址會當掉；dll 位置每次不同，所以記 RVA、從全域變數沿指標找。</li>
+  </ol></div>
+  <details class="quiz"><summary>自我檢查：今天 game.dll 載入在 0x7FFFB5F70000，一個全域變數的 RVA 是 0x3326688，它的實際位址是多少？明天呢？</summary><p>今天是 0x7FFFB5F70000 + 0x3326688 = 0x7FFFB9296688。明天基址會不同，但 RVA 一樣是 0x3326688，用明天的基址加上去就好。這就是只記 RVA 的原因。</p></details>
+  <details class="quiz"><summary>自我檢查：為什麼不能直接在程式裡寫死「血量在 0x29A60000A64」？</summary><p>血量在堆積上，位置每場、甚至每次被遊戲搬家時都會變。寫死的位址下次就指到別的東西或根本不存在，讀了會讀到錯的資料，或觸發存取違規直接當掉。</p></details>
+</section>
+
+<!-- ============================== M7 ============================== -->
+<section id="m7">
+  <div class="sec-kicker">第 7 章 · 執行期</div>
+  <h2>遊戲資料的形狀：結構、系統、雜湊表</h2>
+  <div class="chainbar"><a href="#m1">1 遊戲本體</a><a href="#m2">2 腳本層</a><a href="#m3">3 Loader</a><a href="#m4">4 引擎 API</a><a href="#m5">5 FFI</a><a href="#m6">6 記憶體</a><a href="#m7" class="on">7 資料結構</a><span class="sep">|</span><a href="#m8">8 FileDiver</a><a href="#m9">9 Recon</a><a href="#m10">10 逆向</a><a href="#m11">11 安全讀取</a><span class="sep">|</span><a href="#m12">12 骨架</a><a href="#m13">13 測試</a><a href="#m14">14 打包部署</a><a href="#m15">15 邊界</a><a href="#m16">16 反作弊</a></div>
+  <div class="question"><b>這一章要回答</b>找到一大塊記憶體之後，怎麼知道哪幾個 bytes 是主血？遊戲怎麼從「這隻怪」找到「它的那一塊」？</div>
+  <div class="concepts"><b>新概念</b><dl>
+    <dt>結構、位移</dt><dd>綁在一起的一包資料；欄位從開頭算起第幾個 byte。</dd>
+    <dt>陣列、跨距</dt><dd>同一種資料一筆接一筆；每筆的大小。</dd>
+    <dt>ECS：實體、元件、系統</dt><dd>物件的編號；掛在編號上的資料；集中管理同一種資料的程式。</dd>
+    <dt>雜湊表</dt><dd>用編號快速查到「第幾筆」的表。</dd>
+    <dt>設計數值、執行中數值</dt><dd>寫在遊戲資料檔裡的值（最大血量）；只在記憶體裡的值（目前血量）。</dd>
+  </dl></div>
+
+  <h3>結構與位移</h3>
+  <p>C++ 用 <b>結構</b>（struct）把相關的資料綁在一起。編譯後名字消失，只剩「這個欄位從開頭算起第幾個 byte」，叫<b>位移</b>。很多筆同樣的結構一筆接一筆排成<b>陣列</b>，每筆大小叫<b>跨距</b>，第 n 筆在「開頭 + n × 跨距」。</p>
+  <div class="codepair">
+    <div><div class="cap">開發者寫的 C++（我們看不到，這是推測的樣子）</div><pre class="cpp">struct HealthRecord {        // 一隻怪的血量紀錄
+    // ...
+    int32_t main_hp;         // 主血
+    // ...
+    int32_t armor[39];       // 每區裝甲
+    int32_t zone_hp[38];     // 每區 HP
+    int32_t end_marker;      // 0xFFFF
+};
+
+HealthRecord* records;       // 很多筆連在一起
+records[6].main_hp -= 500;   // 第 6 隻扣 500 血</pre></div>
+    <div><div class="cap">編譯後在記憶體裡只剩位移</div><pre class="cpp">// 每筆紀錄 0x1B8 = 440 bytes，一筆接一筆
+// 第 n 筆在：records + n × 0x1B8
+
++0x014  主血          (4 bytes)
++0x05C  裝甲 × 39     (每個 4 bytes)
++0x0F8  區域 HP × 38  (每個 4 bytes)
++0x190  0xFFFF 標記
+
+// 所以「第 6 隻的主血」=
+//   records + 6 × 0x1B8 + 0x14
+// 我們的模組就是照這個公式去讀</pre></div>
+  </div>
+  <p>點下面的區塊，看 Hive Lord 那一筆血量紀錄（440 bytes）裡每一段是什麼：</p>
+  <div class="card">
+    <div class="memmap" id="memmap"></div>
+    <div class="memaxis"><span>+0x000</span><span>+0x0DC</span><span>+0x1B8（440 bytes）</span></div>
+    <div class="memdetail" id="memdetail"><p style="color:var(--sub)">點一個區塊。</p></div>
+  </div>
+
+  <h3>遊戲怎麼管理怪物：ECS</h3>
+  <p>HD2 用一種叫 <b>ECS</b> 的架構：場上每個東西只是一個<b>實體</b>編號（例如某隻 Hive Lord 是 <code>0x22A</code>）；資料一包一包掛在編號上，叫<b>元件</b>（血量元件、模型元件…）；同一種元件由一個<b>系統</b>集中管理。<b>健康系統</b>把所有怪的血量紀錄放在一個大陣列裡。</p>
+  <p>健康系統要從「實體編號」找到「陣列裡第幾筆」，用的是<b>雜湊表</b>：一張固定大小的表，每格放 <code>{實體編號, 第幾筆}</code>。用編號算出一個起始格，是就讀出來，不是就往下一格找。</p>
+
+  <h3>設計數值與執行中數值</h3>
+  <p>「Hive Lord 最大血量 150,000、每塊板子 15,000、裝甲值 5」這些是<b>設計數值</b>，寫在 <code>data/</code> 的遊戲資料表裡，遊戲沒開也讀得到（第 8 章）。「這隻 Hive Lord 現在剩 118,350」是<b>執行中數值</b>，只在記憶體的那筆紀錄裡。</p>
+  <p>這個區分很有用：設計數值可以變成<b>指紋</b>。例如 Hive Lord 那 39 個裝甲值（預設區 5，然後 6、10、5、5…）在戰鬥中永遠不變，而且組合很獨特。<b>所以</b>在記憶體裡看到一筆紀錄的裝甲欄位剛好是這 39 個數字，就幾乎可以確定它是 Hive Lord 的紀錄。</p>
+  <details><summary>Hive Lord 的 38 個部位（設計數值）</summary>
+    <div class="seg" id="zoneFilter">
+    <button class="on" data-g="all">全部</button><button data-g="HEAD">頭部</button><button data-g="SPINE">裝甲板</button><button data-g="BODY">肉</button><button data-g="FINS">鰭</button>
+  </div>
+  <div class="tbl-wrap"><table id="zoneTable">
+    <thead><tr><th>slot</th><th>內部名稱</th><th>部位</th><th class="num">HP</th><th class="num">構造值</th><th class="num">裝甲</th></tr></thead>
+    <tbody></tbody>
+  </table></div>
+  </details>
+
+  <div class="hudlog"><b>Hive Lord HUD 此時</b>知道了要讀的東西長什麼樣：健康系統陣列裡的一筆紀錄，每筆 440 bytes，主血在 +0x14，38 個部位的 HP 在 +0xF8，裝甲在 +0x5C，結尾有 0xFFFF 標記。但這些位移、跨距、健康系統的位置，都不是猜的，是 B 部分的工具查出來的。</div>
+  <div class="takeaway"><b>重點</b><ol>
+    <li>編譯後只剩位移：「紀錄 +0x14 是主血」就是全部的資訊。</li>
+    <li>遊戲用系統集中管理同一種資料，用雜湊表從實體編號查到第幾筆。</li>
+    <li>不會變的設計數值可以當指紋，確認找到的資料是對的。</li>
+  </ol></div>
+  <details class="quiz"><summary>自我檢查：健康系統的紀錄陣列從 R 開始，每筆 0x1B8 bytes，Hive Lord 是第 6 筆，它的主血在哪個位址？</summary><p>R + 6 × 0x1B8 + 0x14 = R + 0xA50 + 0x14 = R + 0xA64。</p></details>
+  <details class="quiz"><summary>自我檢查：為什麼用「裝甲值」而不是「血量」當指紋？</summary><p>血量在戰鬥中一直變，下一幀就對不上了；裝甲值從頭到尾不變，又是 39 個數字的獨特組合，不容易跟別的東西撞在一起。HUD 早期用「主血 = 150000」當錨點，結果 Hive Lord 一受傷就找不到了（v9 的失敗）。</p></details>
+</section>
+
+<div class="part-banner" id="partB"><span>B 部分：怎麼知道遊戲裡有什麼</span><small>離線讀檔案、遊戲內觀察、讀懂機器碼、安全地讀</small></div>
+
+<!-- ============================== M8 ============================== -->
+<section id="m8">
+  <div class="sec-kicker">第 8 章 · 研究工具</div>
+  <h2>離線讀遊戲檔案：FileDiver</h2>
+  <div class="chainbar"><a href="#m1">1 遊戲本體</a><a href="#m2">2 腳本層</a><a href="#m3">3 Loader</a><a href="#m4">4 引擎 API</a><a href="#m5">5 FFI</a><a href="#m6">6 記憶體</a><a href="#m7">7 資料結構</a><span class="sep">|</span><a href="#m8" class="on">8 FileDiver</a><a href="#m9">9 Recon</a><a href="#m10">10 逆向</a><a href="#m11">11 安全讀取</a><span class="sep">|</span><a href="#m12">12 骨架</a><a href="#m13">13 測試</a><a href="#m14">14 打包部署</a><a href="#m15">15 邊界</a><a href="#m16">16 反作弊</a></div>
+  <div class="question"><b>這一章要回答</b>遊戲沒開的時候，能從檔案裡知道多少？工具是怎麼把一堆雜湊和二進位變回看得懂的東西的？</div>
+  <div class="concepts"><b>新概念</b><dl>
+    <dt>封存檔格式</dt><dd>標頭、型別表、檔案表、資料。</dd>
+    <dt>名稱清單</dt><dd>社群收集的「雜湊 ↔ 原名」對照表。</dd>
+    <dt>datalib、型別庫</dt><dd>遊戲的設計數值表；描述每個結構有哪些欄位、各在哪個位移的檔案。</dd>
+  </dl></div>
+  <p>FileDiver 是社群寫的開源解包工具。它的原理建立在第 1 章和第 7 章：封存檔是有固定格式的二進位檔，名稱是雜湊，設計數值是結構陣列。</p>
+  <h3 id="filediver">FileDiver 怎麼運作</h3>
+  <h4>遊戲的資源怎麼存</h4>
+  <ul>
+    <li><code>data/</code> 資料夾裡是一堆用 16 位十六進位命名的封存檔，每個封存檔分成三個檔案：主檔、<code>.stream</code>（串流資料，例如音效）、<code>.gpu_resources</code>（貼圖、模型頂點）。</li>
+    <li>主檔的格式：標頭（魔數 <code>0xF0000011</code>、型別數、檔案數）→ 型別表 → 檔案表（每個檔案的名稱雜湊、型別雜湊、在三個檔案中的位移和大小）→ 資料。我們自己打包模組用的 patch 檔就是同一個格式。</li>
+    <li>檔案名稱只存 <b>murmur64 雜湊</b>，不存字串。FileDiver 附了約 25 萬行的已知名稱清單（<code>hashes/</code>），把雜湊翻回可讀的路徑；查不到的就只能顯示雜湊。Hive Lord 的區域名稱就是我們自己暴力破解 32-bit 雜湊（murmur64 的高 32 位元）找回來的。</li>
+    <li>FileDiver 開啟 <code>data/</code> 時讀過所有封存檔的表格，建立「(名稱, 型別) → 位置」的索引；後面的 patch 會蓋過前面的同名檔案，跟遊戲的行為一樣。</li>
+  </ul>
+  <h4>它能匯出什麼</h4>
+  <p>模型（glTF / glb 這兩種通用 3D 檔案格式，含骨架和動畫）、貼圖（png）、Wwise 音效（ogg / wav）、文字表（JSON）、動畫狀態機、prefab（預先組好的物件組合）等。我們用到的是：</p>
+  <ul>
+    <li><b>Hive Lord 模型</b>：<code>filediver.exe -g &lt;遊戲資料夾&gt; -i content/fac_bugs/cha_hive_lord/cha_hive_lord.unit --model-format glb</code>。從骨架和碰撞節點的名稱與位置，確認了 spine0 在尾端、每塊板子對應哪根骨頭、尾巴上方那塊板子不屬於任何區域。</li>
+    <li><b>動畫狀態機</b>（<code>sm-state-dumper</code>）：出土警告用的位置層、動作層狀態名稱。</li>
+  </ul>
+  <h4>遊戲資料表（datalib）</h4>
+  <ul>
+    <li>遊戲玩法的數值（每種敵人的元件：血量、裝甲、武器、爆炸…）存在 datalib 二進位資料塊裡（<code>generated_entities.dl_bin</code> 等），另有一份型別庫 <code>dl_library.dl_typelib</code>，描述每個結構的欄位名稱、型別、位移和大小。FileDiver 的原始碼內附這些資料塊和對應的 Go 結構。</li>
+    <li><b>坑</b>：FileDiver 手寫的 Go 結構會隨遊戲更新而過時。HealthComponent 實際是 22,096 bytes、51 個欄位，用舊結構讀出來是亂碼。所以我們改成直接從型別庫讀目前的欄位位移；另一個坑是每個資料塊前面的標頭（DLInstance header）是 28 bytes，不是 24，讀錯 4 bytes 後面就全部錯位。</li>
+  </ul>
+  <h4>我們加的工具</h4>
+  <p>原始碼在 <code>tools/filediver-src</code>（本機修改，沒有回饋給原作者的專案）：</p>
+  <div class="tbl-wrap"><table>
+    <thead><tr><th>工具</th><th>用途</th></tr></thead>
+    <tbody>
+      <tr><td><code>components/hive-lord-health-dumper</code></td><td>從 datalib 解出 Hive Lord 的 HealthComponent：38 區的名稱雜湊、HP、構造值、裝甲、扣主血比例。HUD 的 <code>H.GROUPS</code> 和兩個模組的裝甲指紋都來自這裡。</td></tr>
+      <tr><td><code>components/entity-probe</code></td><td>列出某個資源出現在哪些元件表裡，以及原始 bytes。</td></tr>
+      <tr><td><code>type-layout</code> / <code>type-parents</code></td><td>從型別庫印出結構的欄位位移，取代過時的 Go 結構。</td></tr>
+      <tr><td><code>enum-names</code> / <code>enum-lengths</code>、<code>component-dump</code></td><td>列舉值名稱、通用元件 dump。</td></tr>
+      <tr><td><code>explosion-dumper</code>、<code>bot-spread-dumper</code>、<code>bot-weapon-layout</code></td><td>給爆炸、機器人命中率模組用的資料表工具。</td></tr>
+      <tr><td><code>datalib.EntitiesBlob()</code></td><td>在 FileDiver 的 datalib 套件加了一個公開函式，讓自己的工具能讀到解壓後的 entities 資料。</td></tr>
+    </tbody>
+  </table></div>
+  <div class="note">兩個工具的分工：FileDiver 告訴我們「Hive Lord 有 38 區、每區多少 HP、裝甲是 6, 10, 5…」；Recon 在遊戲裡用這組數字找到那筆紀錄、dump 出 game.dll，再由靜態分析找到管理它的全域變數（見「記憶體位置怎麼找到的」）。</div>
+  <div class="hudlog"><b>Hive Lord HUD 此時</b>（10/03）從 FileDiver 拿到了大半答案：
+    <ul>
+      <li>我們加寫的 <code>hive-lord-health-dumper</code> 解出 Hive Lord 的血量元件：主血 150,000、38 個部位、每個部位的 HP、構造值、裝甲值。裝甲值成了 HUD 和 Plate Fix 共用的指紋。</li>
+      <li>FileDiver 內建的結構定義已經過時（血量元件實際是 22,096 bytes），改從型別庫讀目前的位移。</li>
+      <li>匯出模型骨架，發現原本以為 spine0 在頭那端，其實在尾端，面板的身體畫反了。</li>
+      <li>解出動畫狀態機，後來的出土警告就靠它的狀態名稱。</li>
+    </ul>
+    但 FileDiver 只能回答「遊戲定義了什麼」，回答不了「現在這隻 Hive Lord 的紀錄在記憶體哪裡」。</div>
+  <div class="takeaway"><b>重點</b><ol>
+    <li>封存檔有固定格式，名稱是雜湊，靠社群的名稱清單翻回來。</li>
+    <li>設計數值和結構定義可以離線拿到，型別庫比工具內建的結構更可靠。</li>
+    <li>離線能查的先查完，進遊戲的次數就少很多。</li>
+  </ol></div>
+  <details class="quiz"><summary>自我檢查：FileDiver 為什麼有些資源顯示成一串十六進位，而不是名稱？</summary><p>檔案裡只存名稱的雜湊。名稱清單裡沒有那個雜湊對應的原名，工具就只能顯示雜湊本身。雜湊不能反推，只能靠猜名字、算雜湊、比對。</p></details>
+</section>
+
+<!-- ============================== M9 ============================== -->
+<section id="m9">
+  <div class="sec-kicker">第 9 章 · 研究工具</div>
+  <h2>在遊戲裡觀察：Recon</h2>
+  <div class="chainbar"><a href="#m1">1 遊戲本體</a><a href="#m2">2 腳本層</a><a href="#m3">3 Loader</a><a href="#m4">4 引擎 API</a><a href="#m5">5 FFI</a><a href="#m6">6 記憶體</a><a href="#m7">7 資料結構</a><span class="sep">|</span><a href="#m8">8 FileDiver</a><a href="#m9" class="on">9 Recon</a><a href="#m10">10 逆向</a><a href="#m11">11 安全讀取</a><span class="sep">|</span><a href="#m12">12 骨架</a><a href="#m13">13 測試</a><a href="#m14">14 打包部署</a><a href="#m15">15 邊界</a><a href="#m16">16 反作弊</a></div>
+  <div class="question"><b>這一章要回答</b>反作弊會擋外部的除錯工具，那要怎麼看遊戲執行時的記憶體？</div>
+  <div class="concepts"><b>新概念</b><dl>
+    <dt>偵察模組</dt><dd>只讀不寫、把觀察結果寫進 log 的模組。</dd>
+    <dt>PE 格式、區段</dt><dd>exe / dll 的檔案格式；它分成的幾個區域（程式碼、資料…）。</dd>
+    <dt>dump</dt><dd>把一段記憶體原封不動存成檔案。</dd>
+    <dt>特徵碼（AOB）</dt><dd>一串用來搜尋的 bytes，可以含萬用字元。</dd>
+  </dl></div>
+  <p>Recon 的原理很簡單：<b>把觀察工具本身做成模組</b>。它跟 HUD 一樣由 Loader 載入、在遊戲程序裡執行（第 3 章），用 FFI 讀自己程序的記憶體（第 5、6 章），所以不會碰到反作弊攔截外部存取的那一關。</p>
+  <div class="tbl-wrap"><table>
+    <thead><tr><th></th><th>FileDiver</th><th>Recon（HD2Recon）</th></tr></thead>
+    <tbody>
+      <tr><td>是什麼</td><td>開源的 HD2 資源解包工具（用 Go 這種程式語言寫的，<a href="https://github.com/xypwn/filediver">xypwn/filediver</a>），我們再加了自己的小工具</td><td>我們自己寫的 Bingus addon（<code>src/recon.lua</code>，<code>mods/hd2cpu/recon</code>）</td></tr>
+      <tr><td>在哪裡執行</td><td>你的電腦上，遊戲不用開</td><td>遊戲程序裡面，跟 HUD 一樣由 Loader 載入</td></tr>
+      <tr><td>看的是</td><td>硬碟上 <code>data/</code> 的資源檔、遊戲資料表</td><td>執行中的記憶體（解殼後的 game.dll、堆積）</td></tr>
+      <tr><td>輸出</td><td>檔案：glb 模型、png、JSON、文字報表</td><td><code>HD2Recon_&lt;時間&gt;.log</code> 和 dump 檔</td></tr>
+      <tr><td>會不會動到遊戲</td><td>不會，只讀檔案</td><td>只讀；唯一例外是實驗性的 <code>hook_update</code>（見下）</td></tr>
+    </tbody>
+  </table></div>
+
+  
+  <h3 id="recon">Recon 怎麼運作</h3>
+  <p>GameGuard 會擋外部的除錯器和記憶體讀取工具，所以沒辦法用 Cheat Engine、x64dbg 這類工具直接看遊戲。Recon 的做法是把「偵察」本身做成一個模組：它在遊戲裡面執行，用 LuaJIT FFI 讀自己程序的記憶體，把結果寫進 log。</p>
+  <h4>使用循環</h4>
+  <ol>
+    <li>把這次要查的指令寫進 <code>%TEMP%\HD2Recon_cmd.lua</code>（一般的 Lua，例如 <code>R.scan('48 8B ?? 20')</code>）。</li>
+    <li>啟動遊戲。Recon 被 Loader 載入後，先自動把 game.dll 和 helldivers2.exe 的基址、大小、各區段寫進 log（<code>R.about</code>）。</li>
+    <li>接著讀取指令檔，用 <code>loadstring</code> 編譯、<code>setfenv</code> 給它一個能呼叫 <code>R.*</code> 的環境，包在 <code>pcall</code> 裡執行。出錯只會寫一行 <code>run error</code>，不影響遊戲。</li>
+    <li>關遊戲、讀 log，決定下一輪要查什麼。每次重開遊戲就會重跑一次指令檔。</li>
+  </ol>
+  <h4>主要功能</h4>
+  <div class="tbl-wrap"><table>
+    <thead><tr><th>函式</th><th>做什麼</th></tr></thead>
+    <tbody>
+      <tr><td><code>R.about</code> / <code>R.walk</code></td><td>解析 PE 標頭：模組基址、每個區段的位置與權限。由此發現 game.dll 用 Themida 加殼：7 個沒有名字的區段，加上 <code>.winlice</code>（Themida 把部分程式碼轉成自己的虛擬指令來執行，放在這裡）和 <code>.boot</code>（啟動時把程式碼解密的部分）。</td></tr>
+      <tr><td><code>R.scan</code> / <code>R.find</code></td><td>AOB 特徵碼掃描（<code>48 8B ?? 20</code>，<code>??</code> 是萬用字元），可選只掃可執行區段或全部（Themida 會把程式碼放在不尋常的區段）。</td></tr>
+      <tr><td><code>R.rip</code></td><td>解 x64 的 RIP 相對位移，從一條指令算出它指向的全域變數或函式位址。</td></tr>
+      <tr><td><code>R.dump</code> / <code>R.save</code></td><td>hex dump 一段記憶體到 log，或存成二進位檔。Hive Lord 血量紀錄的格式就是從這種 dump 推出來的。</td></tr>
+      <tr><td><code>R.strings</code> / <code>R.wstrings</code> / <code>R.find_string</code></td><td>抽出 ASCII / UTF-16 字串，或找某個字串在哪裡。</td></tr>
+      <tr><td><code>R.exports</code></td><td>列出模組的匯出函式。game.dll 只有一個 <code>get_plugin_api</code>。</td></tr>
+      <tr><td><code>R.ldld_census</code></td><td>掃描整個程序的記憶體，找遊戲資料表區塊（以 <code>LDLD</code> 開頭），再用 FileDiver 的型別名稱清單對出是哪種表。實測 4.7 GiB 約 23 秒、587 個區塊，24 種型別對出 23 種。</td></tr>
+      <tr><td><code>R.dump_module</code></td><td>把<b>已經在記憶體中解殼的</b> game.dll（約 71 MiB）整個寫成檔案。硬碟上的 game.dll 是加密的，這份 dump 才是能反組譯的版本，後面所有靜態逆向（Ghidra、capstone）都靠它。</td></tr>
+      <tr><td><code>R.hook_update</code> / <code>R.on_tick</code></td><td>實驗性。game.dll 的 <code>get_plugin_api</code> 會把 11 個回呼函式指標寫進 <code>.data</code> 的一個結構，其中一個是每次模擬 tick 呼叫的 <code>update(dt)</code>。這個功能把那個指標換成自己的 Lua 函式（先確認槽位裡的值等於預期才換，並一定會呼叫原本的函式），量到遊戲模擬約 63 Hz。這是 Recon 唯一會寫入的地方，寫的是資料區的一個指標，不是程式碼。早期 HUD（v0–v2）用它驅動，之後改成包裝全域 <code>update()</code>。</td></tr>
+    </tbody>
+  </table></div>
+  <p>安全上，每次讀取前都先用 <code>VirtualQuery</code> 確認那段記憶體已配置、可讀、不是 guard page，從不呼叫 <code>VirtualProtect</code>，也從不修改程式碼。</p>
+  <p>它在這個專案裡的角色：HUD 前 69 個版本是跟 Recon 打包在一起發佈的（共用它的 log 和 tick），v70 才獨立成 Hive Lord HUD。HP 紀錄的第一次 dump 和 game.dll 的解殼 dump 都是 Recon 做的；健康系統和可見性遮罩系統的位置，則是從那份解殼 dump 靜態分析出來的。</p>
+
+  
+  <div class="hudlog"><b>Hive Lord HUD 此時</b>（10/03，v7–v10）用 Recon 的做法找到了血量紀錄：
+    <ul>
+      <li><b>v7</b>：在堆積裡分時搜尋 [150000, 150000, 15000×6] 這種數字序列（前兩個部位、加上板子的設計 HP）。</li>
+      <li><b>v8</b>：找到後把附近的記憶體 dump 出來，對照 FileDiver 的設計數值，推出紀錄格式：主血在 −0xE4、裝甲在 −0x9C、部位 HP 從 0 開始（相對於部位陣列），結尾 0xFFFF。</li>
+      <li><b>v9 失敗、v10 修正</b>：用「主血 = 150000」當錨點，Hive Lord 一受傷就找不到；改用不會變的裝甲值當指紋。</li>
+    </ul>
+    這個「搜尋堆積」的方法能用，但有一個藏得很深的問題（第 11 章）。</div>
+  <div class="takeaway"><b>重點</b><ol>
+    <li>在反作弊下觀察遊戲的辦法，是把觀察工具做成模組，在遊戲裡面讀。</li>
+    <li>用指令檔遙控要查什麼，結果寫 log，每次重開遊戲跑一輪。</li>
+    <li>dump 出來的記憶體，加上 FileDiver 的設計數值，就能推出資料的格式。</li>
+  </ol></div>
+  <details class="quiz"><summary>自我檢查：Recon 和 Cheat Engine 都是讀遊戲記憶體，為什麼一個會被反作弊擋、一個不會？</summary><p>Cheat Engine 是外部程式，要先跟 Windows 申請遊戲的 handle，反作弊的驅動就在這一步攔截。Recon 在遊戲程序裡面，讀的是自己的記憶體，不需要申請 handle。</p></details>
+</section>
+
+<!-- ============================== M10 ============================== -->
+<section id="m10">
+  <div class="sec-kicker">第 10 章 · 研究工具</div>
+  <h2>讀懂機器碼：逆向工程與組合語言</h2>
+  <div class="chainbar"><a href="#m1">1 遊戲本體</a><a href="#m2">2 腳本層</a><a href="#m3">3 Loader</a><a href="#m4">4 引擎 API</a><a href="#m5">5 FFI</a><a href="#m6">6 記憶體</a><a href="#m7">7 資料結構</a><span class="sep">|</span><a href="#m8">8 FileDiver</a><a href="#m9">9 Recon</a><a href="#m10" class="on">10 逆向</a><a href="#m11">11 安全讀取</a><span class="sep">|</span><a href="#m12">12 骨架</a><a href="#m13">13 測試</a><a href="#m14">14 打包部署</a><a href="#m15">15 邊界</a><a href="#m16">16 反作弊</a></div>
+  <div class="question"><b>這一章要回答</b>要找到「固定的起點」（第 6 章的全域變數），就得知道遊戲自己是怎麼找血量的。沒有原始碼，怎麼讀懂遊戲的程式？</div>
+  <div class="concepts"><b>新概念</b><dl>
+    <dt>加殼（Themida）</dt><dd>把程式碼加密，執行時才在記憶體裡解開。</dd>
+    <dt>反組譯、組合語言</dt><dd>把機器碼轉成人勉強讀得懂的文字指令。</dd>
+    <dt>暫存器</dt><dd>CPU 內建的十幾個超快速小格子。</dd>
+    <dt>交叉引用（xref）</dt><dd>找出「誰用到了某個位址」。</dd>
+    <dt>靜態、動態分析</dt><dd>不執行程式直接讀機器碼；在程式執行時觀察。</dd>
+  </dl></div>
+  <p><b>逆向工程</b>是在沒有原始碼的情況下，從程式的行為和機器碼推出它在做什麼。本文用到兩種方式：</p>
+  <div class="grid2">
+    <div class="card"><h4>靜態分析</h4><p>不執行程式，直接讀 dump 出來的機器碼。用反組譯器轉成組合語言，再找：某個位移被誰用到、某個全域變數被誰讀、某個函式被誰呼叫（叫<b>交叉引用</b>，xref）。</p></div>
+    <div class="card"><h4>動態分析</h4><p>在程式執行時觀察：讀某段記憶體、看數值怎麼變、記錄函式被呼叫了幾次。因為反作弊會擋外部的除錯器，我們把觀察工具做成模組（Recon）。</p></div>
+  </div>
+  <ul>
+    <li><b>特徵碼（AOB，array of bytes）</b>：一串 bytes 的樣式，可以含萬用字元，例如 <code>48 8B ?? 20</code>，用來在記憶體裡找特定的程式碼。</li>
+    <li><b>指紋</b>：一組不會變、又夠獨特的值，用來確認「找到的真的是我要的東西」。例如 Hive Lord 39 個部位的裝甲值，在戰鬥中永遠不變。</li>
+  </ul>
+
+  <!-- 16 -->
+  
+  <h3>為什麼要 dump：加殼</h3>
+  <p>game.dll 被 <b>Themida</b> 加殼：硬碟上的檔案是加密的，載入時才在記憶體裡解開。<b>所以</b>直接拿硬碟上的 game.dll 去反組譯只會得到亂碼，要用 Recon 的 <code>dump_module</code>，把<b>記憶體裡已經解開的</b> game.dll 整個存下來（約 71 MiB），再拿去分析。</p>
+  <h3>組合語言入門</h3>
+  <p><b>反組譯器</b>（capstone、Ghidra）把機器碼轉成<b>組合語言</b>：一行一個很小的動作。例如 C++ 的一行：</p>
+  <div class="codepair">
+    <div><div class="cap">C++</div><pre class="cpp">hp = std::min(hp, -1);   // 血量最多 -1</pre></div>
+    <div><div class="cap">組合語言（真的出現在 game.dll）</div><pre class="asm">mov   eax, [r9+rdx*4+0xf8]  ; 從記憶體讀 hp
+mov   ecx, 0xffffffff       ; ecx = -1
+cmp   eax, ecx              ; 比較
+cmovl ecx, eax              ; 較小的留在 ecx
+mov   [r9+rdx*4+0xf8], ecx  ; 寫回記憶體</pre></div>
+  </div>
+  <ul>
+    <li><b>暫存器</b>：<code>rax</code>、<code>rcx</code>、<code>r9</code>…是 CPU 內建的小格子，計算前要先把資料搬進來。</li>
+    <li><b>方括號</b> <code>[ … ]</code> = 去這個位址讀寫記憶體。<code>[r9+rdx*4+0xf8]</code> = 「紀錄開頭 + 第幾區 × 4 + 0xF8」，剛好就是第 7 章的位移。</li>
+    <li><b>全域變數</b>：<code>mov rdi, [rip + 0x2aa2ec6]</code> = 讀「下一條指令的位址 + 0x2aa2ec6」那裡存的值。把位移算出來，就得到全域變數的 RVA。</li>
+    <li><b>函式參數</b>：前 4 個放在 <code>rcx</code>、<code>rdx</code>、<code>r8</code>、<code>r9</code>；<code>call</code> 是呼叫函式；<code>cmp</code> + <code>je</code>/<code>jne</code> 是比較和跳躍（等於 if）。</li>
+  </ul>
+  <h3>找到固定起點的過程</h3>
+  <h3>四個步驟</h3>
+  <ol>
+    <li><b>先從遊戲資料知道要找什麼值。</b>FileDiver 解出 Hive Lord 的 HealthComponent：主血 150,000、每塊板子 15,000、39 個固定的裝甲值（5, 6, 10, 5…）。這組數字就是在記憶體裡認出它的指紋。</li>
+    <li><b>在遊戲中搜尋，找到那筆紀錄。</b>單位是 handle，不能順著指標走到元件，所以早期版本（v7–v10）分時掃描整個堆積，找這組數字。找到後把前後的 bytes dump 出來，對照戰鬥中哪些值在變，推出紀錄格式：主血 +0x14、裝甲 +0x5C、38 區 HP +0xF8、結尾標記 0xFFFF，一筆 0x1B8 bytes。</li>
+    <li><b>反過來從程式碼找出管理這些紀錄的全域變數。</b>
+      <ul>
+        <li>用 Recon addon 把<b>已經在記憶體中解殼的</b> game.dll 整個 dump 出來（硬碟上的檔案被 Themida 加密）。</li>
+        <li>用 Python + capstone 掃整個程式碼，找出用到這些偏移量的指令（0x1B8 的跨距、+0xF8、+0x14），找到傷害函式 <code>0x9235F0</code> 等血量相關函式。</li>
+        <li>這幾個函式全部從同一個位置 <code>[rip + X]</code> 載入系統指標，換算出來就是 <code>game.dll + 0x3326688</code>。再看函式怎麼查表，得出 key 表、容量、紀錄陣列的偏移。</li>
+        <li>可見性遮罩系統 <code>+0x3326708</code> 的找法一樣：從 gore 函式 <code>0x903C70</code> 追到遮罩設定函式 <code>0x721D20</code>，它們也從一個全域變數載入系統指標；entry 的格式（applied / override / touched / base）是讀設定函式和更新函式 <code>0x721680</code> 的程式碼推出來的。</li>
+      </ul>
+    </li>
+    <li><b>實際使用與驗證。</b>程式裡存的是相對位移（RVA），執行時用 <code>GetModuleHandleA('game.dll') + RVA</code> 算出實際位址。每次讀取都重新檢查指紋，不符就跳過。遊戲中的 log 確認過兩者都正確：v83 一次就找到紀錄，Plate Fix v3 寫入後板子在 0.1 秒內隱藏。</li>
+  </ol>
+  <p>對應的程式（<code>hive_lord_plate_fix.lua</code>，節錄）：</p>
+  <pre><code>local HEALTH_RVA, VIS_RVA = 0x3326688, 0x3326708
+
+local function table_header(base_rva, keys_off, cap_off)
+    local base = M.game_base()                -- GetModuleHandleA('game.dll')
+    if not base then return nil end
+    local S = ptr(base + base_rva)            -- 全域變數裡存的系統指標
+    if not S then return nil end
+    local keys, cap = ptr(S + keys_off), u32(S + cap_off)
+    if not keys or not cap or cap == 0 or cap &gt; 0x40000 then return nil end
+    return S, keys, cap
+end
+
+-- ptr / u32 都經過 ReadProcessMemory：位址不對只會回傳 nil，不會當掉</code></pre>
+  <div class="note">這些偏移量綁定遊戲 build 25480438。遊戲更新後位置可能移動：HUD 會退回比較慢的堆積掃描，Plate Fix 則停止動作，需要照第 3 步重新找一次。</div>
+  <h3>實際的組合語言：遊戲怎麼查血量</h3>
+  <p>這是 game.dll 在呼叫傷害函式之前查健康系統的真實程式碼，以及依它還原的 C++（名稱是我們取的）。對照第 7 章的雜湊表說明一起看：</p>
+  <p>這段在呼叫傷害函式 <code>0x9235F0</code> 之前，先用 entity 編號在健康系統的雜湊表裡找出紀錄的 index。587 處程式碼都用同一個全域變數，這是其中一處。</p>
+  <div class="codepair">
+    <div><div class="cap">組合語言 · game.dll+0x8837BB</div><pre class="asm">008837BB  mov  rdi, [rip+0x2aa2ec6]   ; rdi = *(game.dll+0x3326688)：健康系統
+008837C2  mov  ecx, r14d              ; i = 0
+008837C5  mov  r9d, [rdi+0x1038]      ; 容量（2 的次方）
+008837CC  mov  r10d, [rdi+0x1040]     ; 雜湊乘數
+008837D3  imul r10d, edx              ; h = 乘數 × entity（edx）
+008837D7  lea  r15d, [r9-1]           ; mask = 容量 - 1
+008837E0  mov  r11, [rdi+0x1030]      ; key 表：{entity, index} × 容量
+008837E7  mov  ebp, [rdi+0x103c]      ; 「空格」的 key 值
+008837F0  mov  eax, r15d
+008837F3  lea  r8d, [rcx+r10]
+008837F7  and  r8, rax                ; slot = (i + h) &amp; mask
+008837FA  mov  eax, [r11+r8*8]        ; key = keys[slot].entity
+008837FE  cmp  eax, ebp
+00883800  je   0x883860               ; 空格：沒有這個 entity
+00883802  cmp  eax, edx
+00883804  je   0x883864               ; 找到：index 在 [r11+r8*8+4]
+00883806  inc  ecx                    ; 下一格（線性探測）
+00883808  cmp  ecx, r9d
+0088380B  jb   0x8837f0
+   ...
+0088387C  mov  rcx, rdi               ; 第 1 個參數 = 健康系統
+   ...
+00883913  call 0x9235f0               ; 傷害函式</pre></div>
+    <div><div class="cap">還原的 C++（示意）</div><pre class="cpp">// game.dll+0x3326688
+extern HealthSystem* g_health_system;
+
+struct KeyValue { uint32_t entity, index; };
+
+struct HealthSystem {
+    // ...
+    /* +0x1030 */ KeyValue*     keys;
+    /* +0x1038 */ uint32_t      capacity;
+    /* +0x103C */ uint32_t      empty_key;
+    /* +0x1040 */ uint32_t      multiplier;
+    // ...
+    /* +0x1058 */ HealthRecord* records;  // 每筆 0x1B8 bytes
+};
+
+uint32_t find_index(HealthSystem* hs, uint32_t entity) {
+    uint32_t mask = hs-&gt;capacity - 1;
+    uint32_t h    = hs-&gt;multiplier * entity;
+    for (uint32_t i = 0; i &lt; hs-&gt;capacity; ++i) {
+        KeyValue&amp; kv = hs-&gt;keys[(i + h) &amp; mask];
+        if (kv.entity == hs-&gt;empty_key) break;   // 沒有
+        if (kv.entity == entity) return kv.index;
+    }
+    return NOT_FOUND;
+}
+
+// 傷害函式拿到的就是 records[index]
+apply_damage(g_health_system, entity, /* ... */);</pre></div>
+  </div>
+  <p>我們的 Lua 用的是同一張表（<code>HS_KEYS = 0x1030</code>、<code>HS_CAP = 0x1038</code>、<code>HS_RECS = 0x1058</code>），但不算雜湊，而是把 key 表整個讀一遍找 entity。慢一點，但不需要知道雜湊函式的細節，遊戲改了雜湊方式也不會壞。</p>
+
+  
+  <div class="card" style="padding:12px">
+  <svg class="diagram" viewBox="0 0 960 210" role="img" aria-label="指標鏈">
+    <defs><marker id="ar2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="var(--sub)"/></marker></defs>
+    <style>
+      .b2 { fill: var(--panel2); stroke: var(--line); stroke-width: 1.5; }
+      .b2a { fill: var(--panel2); stroke: var(--accent); stroke-width: 1.5; }
+      .b2r { fill: var(--panel2); stroke: var(--red); stroke-width: 1.5; }
+      .t2 { fill: var(--text); font-size: 14px; font-weight: 600; }
+      .s2 { fill: var(--sub); font-size: 11.5px; }
+      .m2 { fill: var(--text); font-size: 12px; font-family: Consolas, monospace; }
+      .l2 { stroke: var(--sub); stroke-width: 1.4; fill: none; marker-end: url(#ar2); }
+    </style>
+    <rect class="b2" x="10" y="30" width="170" height="96" rx="8"/>
+    <text class="t2" x="24" y="56">game.dll 基址</text><text class="s2" x="24" y="76">每次啟動都不同（ASLR）</text><text class="m2" x="24" y="98">GetModuleHandleA</text><text class="m2" x="24" y="114">('game.dll')</text>
+    <rect class="b2a" x="220" y="30" width="170" height="96" rx="8"/>
+    <text class="t2" x="234" y="56">全域變數</text><text class="m2" x="234" y="80">基址 + 0x3326688</text><text class="s2" x="234" y="100">存著健康系統的指標</text><text class="s2" x="234" y="116">（RVA，綁定遊戲 build）</text>
+    <rect class="b2" x="430" y="10" width="170" height="70" rx="8"/>
+    <text class="t2" x="444" y="34">key 表 S+0x1030</text><text class="s2" x="444" y="54">(entity, index) 雜湊表</text><text class="s2" x="444" y="70">容量 S+0x1038</text>
+    <rect class="b2" x="430" y="100" width="170" height="70" rx="8"/>
+    <text class="t2" x="444" y="124">紀錄陣列 S+0x1058</text><text class="s2" x="444" y="144">每筆 0x1B8 bytes</text><text class="s2" x="444" y="160">會被遊戲搬家</text>
+    <rect class="b2" x="640" y="55" width="140" height="70" rx="8"/>
+    <text class="t2" x="654" y="80">一筆紀錄</text><text class="m2" x="654" y="102">陣列 + index</text><text class="m2" x="654" y="118">× 0x1B8</text>
+    <rect class="b2r" x="820" y="20" width="130" height="56" rx="8"/>
+    <text class="m2" x="834" y="44">+0x14</text><text class="s2" x="834" y="64">主血</text>
+    <rect class="b2r" x="820" y="104" width="130" height="56" rx="8"/>
+    <text class="m2" x="834" y="128">+0xF8</text><text class="s2" x="834" y="148">38 區 HP</text>
+    <path class="l2" d="M180,78 H218"/>
+    <path class="l2" d="M390,70 C410,70 410,45 428,45"/>
+    <path class="l2" d="M390,90 C410,90 410,135 428,135"/>
+    <path class="l2" d="M600,45 C620,45 620,80 638,80"/>
+    <path class="l2" d="M600,135 C620,135 620,100 638,100"/>
+    <path class="l2" d="M780,80 C800,80 800,48 818,48"/>
+    <path class="l2" d="M780,100 C800,100 800,132 818,132"/>
+    <text class="s2" x="430" y="196">用 Hive Lord 的 entity 在 key 表裡查到 index，再到紀錄陣列取那一筆</text>
+  </svg>
+  </div>
+  <div class="hudlog"><b>Hive Lord HUD 此時</b>（10/05，v83）：靜態分析找到所有血量函式都從同一個全域變數 <code>game.dll + 0x3326688</code> 載入健康系統（整個 game.dll 有 587 處程式碼讀它）。HUD 從此不再搜尋堆積，而是走「基址 + RVA → 健康系統 → 雜湊表 → 第幾筆 → +0x14」這條固定的路。這一改也順便修好了第 11 章那個問題。</div>
+  <div class="takeaway"><b>重點</b><ol>
+    <li>加殼的程式要從記憶體 dump 出解開的版本才能分析。</li>
+    <li>組合語言裡的 <code>[暫存器 + 位移]</code> 就是結構欄位，<code>[rip + X]</code> 就是全域變數。</li>
+    <li>找出遊戲自己用來找資料的那個全域變數，模組就有了固定、可靠的起點。</li>
+  </ol></div>
+  <details class="quiz"><summary>自我檢查：為什麼要找「遊戲自己用的」全域變數，而不是繼續在堆積裡搜尋指紋？</summary><p>遊戲自己用的那條路，永遠指向遊戲<b>正在用</b>的那一份資料。搜尋堆積可能找到已經被拋棄、卻還留在記憶體裡的舊副本（第 11 章），而且搜尋很慢、很耗時間。</p></details>
+</section>
+
+<!-- ============================== M11 ============================== -->
+<section id="m11">
+  <div class="sec-kicker">第 11 章 · 研究工具</div>
+  <h2>讀取要安全、要正確</h2>
+  <div class="chainbar"><a href="#m1">1 遊戲本體</a><a href="#m2">2 腳本層</a><a href="#m3">3 Loader</a><a href="#m4">4 引擎 API</a><a href="#m5">5 FFI</a><a href="#m6">6 記憶體</a><a href="#m7">7 資料結構</a><span class="sep">|</span><a href="#m8">8 FileDiver</a><a href="#m9">9 Recon</a><a href="#m10">10 逆向</a><a href="#m11" class="on">11 安全讀取</a><span class="sep">|</span><a href="#m12">12 骨架</a><a href="#m13">13 測試</a><a href="#m14">14 打包部署</a><a href="#m15">15 邊界</a><a href="#m16">16 反作弊</a></div>
+  <div class="question"><b>這一章要回答</b>知道位置之後，怎麼讀才不會讓玩家的遊戲當掉，也不會讀到錯的資料？</div>
+  <div class="concepts"><b>新概念</b><dl>
+    <dt>ReadProcessMemory</dt><dd>Windows 讀記憶體的 API：位址錯了只會回傳失敗。</dd>
+    <dt>舊副本</dt><dd>遊戲已經不用、卻還留在記憶體裡的資料。</dd>
+    <dt>時間預算</dt><dd>每幀允許模組花多少時間。</dd>
+  </dl></div>
+  <h3>直接讀 vs ReadProcessMemory</h3>
+  <p>用 FFI 把位址轉成指標直接讀，位址錯了就是存取違規、遊戲當掉（第 6 章）。Recon 的做法是先用 <code>VirtualQuery</code> 問「這段能不能讀」再讀，但「問」和「讀」之間有極短的空檔，遊戲的其他執行緒可能剛好在這個空檔把記憶體釋放掉。</p>
+  <p><code>ReadProcessMemory</code> 沒有這個空檔：讀不到就回傳失敗，不會當掉。<b>所以</b>要給玩家用的 HUD 和 Plate Fix 一律用它讀自己的程序；Recon 是開發用工具，才接受直接讀的小風險。HUD 的離線測試也實際抓到過：直接讀堆積時，記憶體在檢查和讀取之間被釋放，測試程式當掉。</p>
+  <h3>「釋放」不等於「消失」：舊副本</h3>
+  <p>C++ 程式歸還一塊記憶體，或陣列長大時搬到新位置，舊的那塊通常只是交還給程式自己的配置器，<b>內容還在、也還讀得到</b>，只是遊戲不再更新它。如果模組是「在記憶體裡搜尋」找資料，就可能找到這種舊副本：指紋完全正確，數值卻凍結不動。</p>
+  <h3>每次讀都要驗證</h3>
+  <ul>
+    <li>每次讀紀錄都重新檢查指紋（39 個裝甲值 + 0xFFFF 標記）和數值範圍（每個部位的 HP 不能超過最大值）。任何一項不符，就當作沒找到，不用這筆資料。</li>
+    <li>遊戲會搬家：每幀都重新從全域變數讀陣列位置，每秒用實體編號重新查一次第幾筆。</li>
+    <li>找不到時有退路：全域變數讀不到（例如遊戲更新後位置變了），就退回比較慢的堆積搜尋，並在 log 寫下原因。</li>
+  </ul>
+  <h3>時間預算</h3>
+  <p>搜尋堆積要讀好幾 GB 的記憶體，一次做完會讓那一幀卡住好幾秒。所以要切成小塊，每幀只做一點。HUD 一開始每幀花 8 ms，在 130 FPS 時讓 FPS 掉了一半，後來降到 4 ms。改成直接走全域變數之後，平常每幀的成本只剩零點幾毫秒。</p>
+  <div class="hudlog"><b>Hive Lord HUD 此時</b>（10/05）：玩家回報「板子已經炸了，面板還顯示 20 幾 %」。查 log 發現，HUD 的堆積搜尋在某次重新搜尋時採用了一份<b>舊副本</b>，之後 130 秒數值都沒變。這就是 v83 改成從全域變數出發（第 10 章）的直接原因。改完之後一整場戰鬥只需要找一次，再也沒有凍結。</div>
+  <div class="takeaway"><b>重點</b><ol>
+    <li>給玩家用的模組一律用 ReadProcessMemory：位址錯了只失敗、不當掉。</li>
+    <li>釋放的記憶體還讀得到，搜尋可能找到凍結的舊副本；從遊戲自己的指標出發才可靠。</li>
+    <li>每次讀都驗證、每幀都有時間上限、失敗時有退路並寫 log。</li>
+  </ol></div>
+  <details class="quiz"><summary>自我檢查：舊副本「指紋完全正確」，那要怎麼防？</summary><p>指紋只能證明「這是 Hive Lord 的紀錄」，不能證明「這是遊戲正在用的那一份」。所以不能靠搜尋，要從遊戲自己的全域變數和雜湊表找：遊戲當下用哪一份，那條路就指向哪一份。</p></details>
+</section>
+
+<div class="part-banner" id="partC"><span>C 部分：怎麼做出來、交到玩家手上</span><small>程式骨架、離線測試、打包部署、限制、反作弊</small></div>
+
+<!-- ============================== M12 ============================== -->
+<section id="m12">
+  <div class="sec-kicker">第 12 章 · 製作</div>
+  <h2>模組程式的骨架</h2>
+  <div class="chainbar"><a href="#m1">1 遊戲本體</a><a href="#m2">2 腳本層</a><a href="#m3">3 Loader</a><a href="#m4">4 引擎 API</a><a href="#m5">5 FFI</a><a href="#m6">6 記憶體</a><a href="#m7">7 資料結構</a><span class="sep">|</span><a href="#m8">8 FileDiver</a><a href="#m9">9 Recon</a><a href="#m10">10 逆向</a><a href="#m11">11 安全讀取</a><span class="sep">|</span><a href="#m12" class="on">12 骨架</a><a href="#m13">13 測試</a><a href="#m14">14 打包部署</a><a href="#m15">15 邊界</a><a href="#m16">16 反作弊</a></div>
+  <div class="question"><b>這一章要回答</b>把前面的原理組合起來，一個穩定的模組程式長什麼樣子？</div>
+  <div class="concepts"><b>新概念</b><dl>
+    <dt>單例守衛</dt><dd>用一個獨特的全域變數，確保模組只被載入一次。</dd>
+    <dt>解除武裝（disarm）</dt><dd>出錯後永久停止自己，讓遊戲照常。</dd>
+    <dt>另一個模組的 API</dt><dd>Mod Options Menu 這類模組開放給其他模組呼叫的函式。</dd>
+  </dl></div>
+  <p>Hive Lord HUD 的原始碼檔頭列出了它的段落，剛好就是前面每一章的原理按順序排好：</p>
+  <div class="tbl-wrap"><table>
+    <thead><tr><th>段落</th><th>做什麼</th><th>對應原理</th></tr></thead>
+    <tbody>
+      <tr><td>Hive Lord data</td><td>38 個部位的設計數值</td><td>第 7、8 章</td></tr>
+      <tr><td>Detection</td><td>找 Hive Lord 單位、距離、出土狀態</td><td>第 4 章（引擎 API）</td></tr>
+      <tr><td>Live HP locator</td><td>從全域變數找到血量紀錄；找不到時退回搜尋</td><td>第 6、10、11 章</td></tr>
+      <tr><td>Zone tracking</td><td>逐幀比較部位狀態，判斷是誰改的</td><td>第 15 章（多人）</td></tr>
+      <tr><td>GUI</td><td>保留模式的圖元、淡入淡出、只送有變的</td><td>第 4 章</td></tr>
+      <tr><td>Per-frame worker</td><td>每幀的主流程</td><td>第 2 章</td></tr>
+      <tr><td>Settings</td><td>設定檔 + Mod Options Menu</td><td>本章</td></tr>
+      <tr><td>Install</td><td>包裝全域 update()</td><td>第 2、4 章</td></tr>
+    </tbody>
+  </table></div>
+  <h3>每個模組都該有的幾條規則</h3>
+  <ol>
+    <li><b>單例守衛</b>：開頭先檢查一個獨特的全域變數，已經存在就不再執行。</li>
+    <li><b>環境檢查</b>：需要的 API、Loader 不在，就寫 log 並停手，而不是硬跑。</li>
+    <li><b>包裝 update，出錯就解除武裝</b>：每幀工作包在 <code>pcall</code> 裡，第一次出錯就永久關閉自己、清掉畫面，並寫下原因。</li>
+    <li><b>一定呼叫原本的 update</b>。</li>
+    <li><b>呼叫前先確認</b>：world 還在、unit 還活著（引擎錯誤救不回來）。</li>
+    <li><b>時間預算與自我計時</b>：量每幀花了多少，定期寫進 log。</li>
+    <li><b>log 要限流</b>：只寫狀態改變，不要每幀一行。</li>
+  </ol>
+  <h3>跟別的模組合作：設定選單</h3>
+  <p>Mod Options Menu 也是一個透過 Loader 載入的模組，它在全域放了一個 <code>ModOptionsMenu</code> 表，其他模組可以呼叫 <code>register_option</code> 註冊設定、用 <code>get</code> 讀值。<b>因為</b>模組之間的載入順序不保證，<b>所以</b> HUD 不在載入時找它，而是在 update 裡才找，找到了才註冊。沒有裝它，HUD 就用設定檔裡的值。</p>
+  <div class="hudlog"><b>Hive Lord HUD 此時</b>（10/04，v72–v78）把所有設定搬進 Mod Options Menu，拿掉所有快捷鍵。過程中學到：選單的修改要按遊戲的「套用」才生效，按 Esc 會丟掉，所以「預覽」改成按鈕式：套用後顯示 15 秒，再自己把選項切回關。（10/07，v116）功能凍結後做了一次大整理：3,568 行減到約 2,600 行，研究用的診斷移到另一個開發用模組。</div>
+  <div class="takeaway"><b>重點</b><ol>
+    <li>模組骨架：單例守衛 → 環境檢查 → 包裝 update（pcall + 解除武裝）→ 每幀工作。</li>
+    <li>每條規則都對應前面的一個原理，大多是當掉之後才補上的。</li>
+    <li>模組之間可以合作，但不能假設載入順序。</li>
+  </ol></div>
+  <details class="quiz"><summary>自我檢查：為什麼「出錯就永久關閉」比「出錯就下一幀再試」好？</summary><p>同一個錯誤下一幀通常還會再發生。一直重試會每幀都出錯、把 log 灌爆，還可能在錯的狀態下繼續呼叫引擎 API 而讓遊戲當掉。永久關閉只損失這個模組的功能，遊戲安全，log 裡也留下第一次出錯的原因。</p></details>
+</section>
+
+<!-- ============================== M13 ============================== -->
+<section id="m13">
+  <div class="sec-kicker">第 13 章 · 製作</div>
+  <h2>在電腦上假裝成遊戲：離線測試</h2>
+  <div class="chainbar"><a href="#m1">1 遊戲本體</a><a href="#m2">2 腳本層</a><a href="#m3">3 Loader</a><a href="#m4">4 引擎 API</a><a href="#m5">5 FFI</a><a href="#m6">6 記憶體</a><a href="#m7">7 資料結構</a><span class="sep">|</span><a href="#m8">8 FileDiver</a><a href="#m9">9 Recon</a><a href="#m10">10 逆向</a><a href="#m11">11 安全讀取</a><span class="sep">|</span><a href="#m12">12 骨架</a><a href="#m13" class="on">13 測試</a><a href="#m14">14 打包部署</a><a href="#m15">15 邊界</a><a href="#m16">16 反作弊</a></div>
+  <div class="question"><b>這一章要回答</b>每次進遊戲測試都要重開、還可能當掉。能不能在電腦上就先抓到大部分的錯？</div>
+  <div class="concepts"><b>新概念</b><dl>
+    <dt>lupa</dt><dd>在 Python 裡執行 Lua 的套件，有 LuaJIT 版本。</dd>
+    <dt>假物件（stub）</dt><dd>模仿遊戲 API 的假函式。</dd>
+    <dt>變異測試</dt><dd>故意把程式改壞，確認測試會失敗。</dd>
+  </dl></div>
+  <p>原理：模組只透過三個管道跟遊戲互動——<b>引擎 API</b>、<b>FFI 讀記憶體</b>、<b>Loader</b>。只要把這三個管道換成假的，模組就分不出自己是不是在遊戲裡。</p>
+  <ul>
+    <li><b>同款的 Lua</b>：用 lupa 的 LuaJIT 版本執行真正的模組原始碼。用新版 Lua 的話，<code>//</code> 這類遊戲不支援的語法會通過測試，進遊戲才載入失敗。</li>
+    <li><b>假的引擎</b>：自己寫 <code>World</code>、<code>Unit</code>、<code>Gui</code>、<code>Camera</code>，記錄模組呼叫了什麼。可以讓它們故意模仿遊戲的壞習慣，例如「對已經死掉的單位呼叫就當掉」，確認模組不會這樣做。</li>
+    <li><b>假的記憶體</b>：在真的記憶體裡放一份假的健康系統、雜湊表、血量紀錄，讓模組照真正的路去找。再放幾個「長得像但不對」的誘餌，確認驗證會擋下它們。</li>
+    <li><b>變異測試</b>：把程式故意改壞（例如拿掉指紋檢查），測試必須失敗。抓不到故意放的 bug，代表測試沒在檢查東西。</li>
+    <li><b>畫面也能離線看</b>：把模組呼叫的 <code>Gui.rect</code>、<code>Gui.text</code> 記錄下來，用 Python 畫成圖片，進遊戲前就能看版面。Hive Lord HUD 的展示圖和模組圖示就是這樣產生的。</li>
+  </ul>
+  <div class="hudlog"><b>Hive Lord HUD 此時</b>有幾十個測試腳本（<code>test_v83.py</code>、<code>test_v108.py</code>…），多數版本都記錄著「殺掉了幾個變異」。它們抓到過不少進遊戲前就會出事的錯，例如：在定義某個表之前就用到它（模組會在遊戲裡直接解除武裝）、診斷用的緩衝區被誤當成血量紀錄採用（它也通過了指紋檢查）。也踩過一個測試本身的坑：測試讀寫的是<b>真正的</b>設定檔，把玩家的設定改掉了，之後所有測試都改成導到暫存資料夾。</div>
+  <div class="takeaway"><b>重點</b><ol>
+    <li>模組跟遊戲的互動只有三個管道，全部換成假的就能離線執行。</li>
+    <li>假物件要模仿遊戲的嚴格與壞習慣，誘餌要能騙過不小心的驗證。</li>
+    <li>變異測試確認「測試真的有在檢查」。</li>
+  </ol></div>
+  <details class="quiz"><summary>自我檢查：測試全部通過，進遊戲卻失敗，最可能是哪裡不一樣？</summary><p>假物件跟真的遊戲不一樣：太寬鬆（真的引擎會當掉的呼叫，假的不會）、資料形狀不同（測試只造了一種記憶體布局），或用了不同版本的 Lua。修法是把那個差異補進假物件，再加一條對應的變異測試。</p></details>
+</section>
+
+<!-- ============================== M14 ============================== -->
+<section id="m14">
+  <div class="sec-kicker">第 14 章 · 製作</div>
+  <h2>打包與部署：把程式變成 patch 檔</h2>
+  <div class="chainbar"><a href="#m1">1 遊戲本體</a><a href="#m2">2 腳本層</a><a href="#m3">3 Loader</a><a href="#m4">4 引擎 API</a><a href="#m5">5 FFI</a><a href="#m6">6 記憶體</a><a href="#m7">7 資料結構</a><span class="sep">|</span><a href="#m8">8 FileDiver</a><a href="#m9">9 Recon</a><a href="#m10">10 逆向</a><a href="#m11">11 安全讀取</a><span class="sep">|</span><a href="#m12">12 骨架</a><a href="#m13">13 測試</a><a href="#m14" class="on">14 打包部署</a><a href="#m15">15 邊界</a><a href="#m16">16 反作弊</a></div>
+  <div class="question"><b>這一章要回答</b>一個 .lua 檔，怎麼變成模組管理器能匯入、遊戲能載入的東西？</div>
+  <div class="concepts"><b>新概念</b><dl>
+    <dt>manifest.json</dt><dd>模組管理器讀的描述檔：名稱、說明、選項。</dd>
+    <dt>GUID</dt><dd>模組永遠不變的身分證號碼。</dd>
+    <dt>slot</dt><dd><code>data/</code> 裡某個 patch 檔的編號位置。</dd>
+  </dl></div>
+  <h3>patch 檔長什麼樣</h3>
+  <p>打包工具做的事，就是把第 1 章的封存檔格式反過來寫一次：標頭、型別表（只有 lua 一種）、檔案表（名稱雜湊、位置、大小），最後是資料。資料本身是「長度 + 2（代表純文字）+ 原始碼」，對齊到 16 bytes。在下面輸入資源名稱和程式內容，看實際的 bytes（跟我們的打包工具算法相同）：</p>
+  <div class="card">
+    <div style="display:flex;gap:10px;flex-wrap:wrap">
+      <label class="inl">資源名稱 <input id="arcName" class="txt" value="mods/hivelordhud/hive_lord_hud" spellcheck="false" style="width:280px"></label>
+    </div>
+    <textarea id="arcSrc" class="txt" spellcheck="false" style="width:100%;height:70px;margin-top:8px">-- HD2-Addon: mods/hivelordhud/hive_lord_hud
+print('hi')</textarea>
+    <div id="arcLegend" style="margin:8px 0;font-size:.82rem"></div>
+    <div class="hexview" id="arcHex"></div>
+  </div>
+  <h3>zip 與 manifest</h3>
+  <p>模組管理器匯入的是一個 zip：<code>manifest.json</code>（名稱、說明、選項）、每個選項一個資料夾（裡面是 patch 檔）、<code>Source/</code>（明文原始碼，讓人能審查）。幾個重點：</p>
+  <ul>
+    <li><b>GUID 永遠不變</b>：管理器靠它認出「這是同一個模組的新版本」。Hive Lord HUD 的 GUID 從 v1 到 v3 都是 <code>4ef072f2-…</code>。</li>
+    <li><b>Name 只用英文、數字、空白</b>：它會被當成資料夾名稱，一個冒號就讓匯入失敗。</li>
+    <li><b>選項 = 分開的 patch 檔</b>：Hive Lord HUD 有兩個選項，「Hive Lord HUD」和「Dead Plate Fix」，各是一個 patch 檔，玩家可以只裝其中一個。</li>
+  </ul>
+  <h3>部署：管理器會重排編號</h3>
+  <p>Arsenal 每次部署都會重新分配 patch 編號，而且每個選項各佔一個 slot。開發時為了快，我們會直接把新的 patch 檔複製進 <code>data/</code>，這時候<b>不能寫死編號</b>：要用檔案內容（找自己的 <code>-- HD2-Addon:</code> 那一行）確認哪個 slot 是自己的，並且同時更新 Arsenal 自己保存的那份副本，否則下次 Deploy 會把舊版放回去。遊戲執行中也不能部署：Lua 只在啟動時載入。</p>
+  <div class="hudlog"><b>Hive Lord HUD 此時</b>（10/04）因為寫死編號吃了虧：Arsenal 重排之後，我們複製到 patch_1 的新版蓋掉了另一個模組（Megapack 的一個選項），遊戲還載入了放在 patch_7 的舊版。之後寫了部署腳本：依內容找出自己的 slot、找不到或找到兩個以上就中止、遊戲在執行就拒絕部署。發佈則用 <code>build_hive_lord.py</code>：Release v1 = 內部 build 70，v2 = build 87（加入 Dead Plate Fix 選項），v3 = build 121。</div>
+  <div class="takeaway"><b>重點</b><ol>
+    <li>打包就是照封存檔格式寫一個只有 lua 資源的 patch 檔，名稱用 murmur64。</li>
+    <li>manifest 的 GUID 不變、Name 只用安全字元，選項各自一個 patch 檔。</li>
+    <li>管理器會重排編號，任何直接部署都要先依內容找到自己的 slot。</li>
+  </ol></div>
+  <details class="quiz"><summary>自我檢查：如果每次發佈都產生一個新的 GUID，會發生什麼事？</summary><p>模組管理器會把每一版當成不同的模組。玩家的清單裡會同時出現好幾個 Hive Lord HUD，舊版不會被取代，還可能兩個一起載入。</p></details>
+</section>
+
+<!-- ============================== M15 ============================== -->
+<section id="m15">
+  <div class="sec-kicker">第 15 章 · 限制</div>
+  <h2>多人連線與遊戲更新：模組的邊界</h2>
+  <div class="chainbar"><a href="#m1">1 遊戲本體</a><a href="#m2">2 腳本層</a><a href="#m3">3 Loader</a><a href="#m4">4 引擎 API</a><a href="#m5">5 FFI</a><a href="#m6">6 記憶體</a><a href="#m7">7 資料結構</a><span class="sep">|</span><a href="#m8">8 FileDiver</a><a href="#m9">9 Recon</a><a href="#m10">10 逆向</a><a href="#m11">11 安全讀取</a><span class="sep">|</span><a href="#m12">12 骨架</a><a href="#m13">13 測試</a><a href="#m14">14 打包部署</a><a href="#m15" class="on">15 邊界</a><a href="#m16">16 反作弊</a></div>
+  <div class="question"><b>這一章要回答</b>模組讀到的東西一定是真的嗎？今天能用的模組，明天還能用嗎？</div>
+  <div class="concepts"><b>新概念</b><dl>
+    <dt>主機、用戶端</dt><dd>開房的人；加入的人。</dd>
+    <dt>權威</dt><dd>誰說了算。很多事由主機決定，用戶端只收到結果。</dd>
+    <dt>build</dt><dd>遊戲的版本號。</dd>
+  </dl></div>
+  <h3>用戶端看到的不一定是全貌</h3>
+  <p>多人遊戲裡，<b>主機</b>決定很多事（敵人 AI、部位是否被打壞），<b>用戶端</b>只收到結果。HD2 的每台電腦會自己模擬看得到的子彈和傷害，主機只送「狀態改變」「死亡」這類結果。<b>所以</b>用戶端記憶體裡的數字，可能跟主機不一樣，而模組只讀得到自己這台的。</p>
+  <p>作者永遠以用戶端身分加入別人的遊戲，所以 HUD 必須誠實面對一件事：<b>用戶端上的區域 HP 不一定是真的</b>。從 30 多份遊戲 log 和 game.dll 的網路程式碼分析得到：</p>
+  <div class="tbl-wrap"><table>
+    <thead><tr><th>情況</th><th>用戶端收到什麼</th><th>HUD 怎麼顯示</th></tr></thead>
+    <tbody>
+      <tr><td>從開場就在</td><td>每台機器各自模擬傷害；主血大致準確，結束時主機的死亡事件把主血歸零</td><td>直接顯示</td></tr>
+      <tr><td>中途加入</td><td>主血是一個快照（可能過時 0–51k）；已裂開的板子收到精確的 <code>-1</code>；只受過部分傷害的板子從滿血開始算</td><td>板子和主血前面加「&lt;」（最多剩這麼多）；收到 -1 的板子顯示 &lt;70%</td></tr>
+      <tr><td>主機修正狀態</td><td>區域狀態（裂開 / 摧毀）只由主機決定；事件到達時 HP 被強制設為 <code>min(HP, -1)</code> 或 <code>min(HP, -35000)</code></td><td>第一次發現主機修正「我們落後」後，所有板子 % 加「&lt;」</td></tr>
+    </tbody>
+  </table></div>
+  <p>判斷某次狀態變化是誰造成的（<code>H.state_diag</code>）：同一幀 HP 剛好落在 <code>-1</code> 或 <code>-構造值</code>、而主血沒有下降 → 主機事件；HP 是被傷害打過門檻、主血同時下降 → 本機命中。一場用戶端戰鬥的 log 裡，14 次狀態變化全部來自主機，而我們的 HP 每次都落後、從沒超前，所以「&lt;」代表的是上限，不是估計。</p>
+  <div class="note warn">曾經研究過讓主機廣播真實血量（<code>rpc_heal</code> / <code>rpc_synced_health_request</code>），結論是路徑不通（Hive Lord 不在同步系統 0x90 裡），而且送出網路請求會影響別人的遊戲，安全上也不做。</div>
+
+  
+  <p>這也決定了用戶端模組<b>做不到</b>的事：例如「讓 Hive Lord 不要跑太遠」，AI 在主機上跑，用戶端的模組改不了。</p>
+  <h3>遊戲更新會改掉一切位址</h3>
+  <p>遊戲更新時 game.dll 會重新編譯：函式和全域變數的位置（RVA）、結構的位移、資料表的大小都可能改變。本文所有的位址都只對 build <b>25480438</b> 有效。<b>所以</b>模組要設計成「對不上就安全停手」：</p>
+  <ul>
+    <li>每次讀都驗證指紋，不對就不用（第 11 章）。</li>
+    <li>主要的路失效時有退路（HUD 退回堆積搜尋；Plate Fix 直接停止動作）。</li>
+    <li>log 寫清楚「為什麼停手」，玩家回報時才知道是更新造成的。</li>
+    <li>Loader 本身也綁定遊戲版本，大更新後要等 Loader 先更新。</li>
+  </ul>
+  <div class="hudlog"><b>Hive Lord HUD 此時</b>為了誠實面對多人的限制，加了「&lt;」標記：中途加入、或發現主機修正過我們的數字之後，板子的 % 和主血前面會加「&lt;」，代表「最多剩這麼多」。也研究過能不能讓主機送出真實血量，結論是路不通，而且送網路請求會影響別人的遊戲，所以不做。</div>
+  <div class="takeaway"><b>重點</b><ol>
+    <li>用戶端模組只看得到自己這台電腦的資料，主機決定的事改不了。</li>
+    <li>顯示的數字要誠實標出不確定性。</li>
+    <li>遊戲更新會讓位址失效，模組要「對不上就安全停手」。</li>
+  </ol></div>
+  <details class="quiz"><summary>自我檢查：為什麼遊戲更新後，HUD 會變慢但還能用，Plate Fix 卻直接不動作？</summary><p>HUD 只讀資料，全域變數失效時可以退回比較慢、但不依賴位址的堆積搜尋。Plate Fix 要寫入遮罩，寫錯地方的後果嚴重，所以只要位置對不上就完全不寫，寧可不修也不冒險。</p></details>
+</section>
+
+<!-- ============================== M16 ============================== -->
+<section id="m16">
+  <div class="sec-kicker">第 16 章 · 限制</div>
+  <h2>反作弊：模組在什麼範圍裡運作</h2>
+  <div class="chainbar"><a href="#m1">1 遊戲本體</a><a href="#m2">2 腳本層</a><a href="#m3">3 Loader</a><a href="#m4">4 引擎 API</a><a href="#m5">5 FFI</a><a href="#m6">6 記憶體</a><a href="#m7">7 資料結構</a><span class="sep">|</span><a href="#m8">8 FileDiver</a><a href="#m9">9 Recon</a><a href="#m10">10 逆向</a><a href="#m11">11 安全讀取</a><span class="sep">|</span><a href="#m12">12 骨架</a><a href="#m13">13 測試</a><a href="#m14">14 打包部署</a><a href="#m15">15 邊界</a><a href="#m16" class="on">16 反作弊</a></div>
+  <div class="question"><b>這一章要回答</b>模組又讀又寫遊戲記憶體，反作弊為什麼不管？界線在哪裡？</div>
+  <div class="concepts"><b>新概念</b><dl>
+    <dt>反作弊（GameGuard）</dt><dd>監視有沒有外部程式動遊戲的程式。</dd>
+    <dt>程式碼雜湊檢查</dt><dd>定期檢查程式碼有沒有被改。</dd>
+    <dt>注入</dt><dd>把自己的程式碼塞進別的程序裡執行。</dd>
+  </dl></div>
+  <h3 id="b-gg">GameGuard 會做什麼</h3>
+    <p>GameGuard（nProtect）是 Helldivers 2 的反作弊，由一個核心驅動程式和跟遊戲一起啟動的監控程序（GameMon）組成。它的內部細節沒有公開，以下是從它的行為和我們實際遇到的狀況整理的：</p>
+  <div class="tbl-wrap"><table>
+    <thead><tr><th>它做的事</th><th>我們實際看到的</th></tr></thead>
+    <tbody>
+      <tr><td><b>掃描電腦上的程式</b>，比對已知作弊工具的特徵</td><td>電腦上有被判定為作弊工具的程式時，遊戲會跳出「Suspicious program detected」並關閉。號稱能繞過反作弊的工具尤其危險，很多本身就是木馬。</td></tr>
+      <tr><td><b>保護遊戲程序</b>：擋外部程式開遊戲的 handle 去讀寫記憶體或注入（把自己的程式碼塞進遊戲程序裡執行），偵測除錯器</td><td>遊戲崩潰後程序殺不掉（Task Manager 結束「成功」但程序還在），只能重開機。</td></tr>
+      <tr><td><b>檢查程式碼完整性</b>：定期對程式碼區段算雜湊</td><td>所以我們從不修改 code bytes、不 hook 函式。</td></tr>
+      <tr><td><b>每次啟動自我更新</b>，log 加密且每次啟動輪替</td><td>log 無法自己解讀，有問題只能交給 Arrowhead 客服。</td></tr>
+    </tbody>
+  </table></div>
+  <p style="color:var(--sub);font-size:.9rem">另外，game.dll 本身用 Themida 加殼，這是另一套保護，不屬於 GameGuard。硬碟上的 game.dll 是加密的，只有載入記憶體後才是解開的程式碼。</p>
+  <ul>
+    <li><b>加殼（Themida）</b>：把程式碼加密，執行時才在記憶體裡解開。所以硬碟上的 game.dll 讀不出東西，要從執行中的記憶體 dump 出來才能分析。</li>
+    <li><b>殭屍程序</b>：遊戲崩潰後，程序仍受反作弊保護，工作管理員結束不掉，只能重開機。開發時遇到好幾次。</li>
+    <li><b>程式碼雜湊檢查</b>：定期對程式碼區段算雜湊（第 3 小節），只要有 1 個 byte 被改就對不上。這也是為什麼模組從不修改程式碼。</li>
+  </ul>
+
+  <!-- 15 -->
+  
+  <h3>為什麼 Plate Fix 讀寫記憶體，GameGuard 卻不管</h3>
+  <p>因為 GameGuard 主要防的是「外面的程式動遊戲」，而 Plate Fix 是遊戲自己在動自己的記憶體。從作業系統的角度看，這是兩件完全不同的事。</p>
+  <div class="grid2">
+    <div class="card"><h4>1. 不跨程序</h4><p>外掛通常是另一個 exe：<code>OpenProcess</code> 拿遊戲的 handle，再讀寫記憶體。GameGuard 的驅動就在這一步攔截。Plate Fix 是遊戲內建的 LuaJIT 在執行，用的 <code>WriteProcessMemory(GetCurrentProcess(), …)</code> 是「自己」的虛擬 handle（-1），不需要開任何外部 handle，根本不經過被攔的那一步。對系統來說，這跟遊戲自己執行 <code>*p = x</code> 一樣，只是多了「位址錯了回傳失敗、不會當掉」的保護。</p></div>
+    <div class="card"><h4>2. 寫的是資料，不是程式碼</h4><p>程式碼不會變，所以能算雜湊比對；HP、遮罩、座標這些資料遊戲自己每秒要寫上百萬次，沒辦法檢查有沒有被改。Plate Fix 只寫遮罩 entry 裡的 1 個 byte，而且寫的值跟 gore 本來就會寫的一模一樣，是遊戲正常運作時本來就會出現的狀態。</p></div>
+    <div class="card"><h4>3. 它掃的是作弊程式，不是遊戲資源</h4><p>GameGuard 比對執行中的程式和已知的外掛特徵，不會逐一檢查遊戲載入的 Lua 資源在做什麼。整個 Bingus 模組圈都這樣運作，例如 Megapack 的 Enemy Collision Synchronized 直接用 FFI 呼叫 game.dll 內部函式，第一人稱模組會配置可執行記憶體、替換 Camera API 的函式指標，都比 Plate Fix 侵入得多，也一樣沒被擋。</p></div>
+    <div class="card"><h4>4. 伺服器端沒有東西可以發現</h4><p>Plate Fix 不改傷害、碰撞、網路封包，只改你自己畫面上的一個模型遮罩。主機和其他玩家收不到任何差異。</p></div>
+  </div>
+  <h3 id="gg-data">為什麼插進去的資料和 Lua 不會被抓</h3>
+  <p>一句話：GameGuard 這類反作弊找的是<b>外來的程式碼和外來的存取</b>（注入的 DLL、外部程式開的 handle、被改過的程式碼、已知的外掛程式）。模組加進去的是<b>資料</b>，然後由遊戲<b>自己本來就有的程式碼</b>去讀、去執行。從它的角度看，跟遊戲正常運作分不出來。逐層來看：</p>
+  <div class="tbl-wrap"><table>
+    <thead><tr><th>我們加了什麼</th><th>誰去讀 / 執行它</th><th>為什麼不會被當成作弊</th></tr></thead>
+    <tbody>
+      <tr><td><b>patch 檔</b><br><code>data/9ba626afa44a3aa3.patch_N</code></td><td>遊戲自己的資源系統（Stingray 引擎）</td><td>用 patch 檔蓋過原版資源是引擎本來就有的機制。遊戲執行時不驗證資源檔簽章（否則所有模組都載不進去），只有 Steam「驗證檔案完整性」時才會比對，而那會直接把檔案換回原版。反作弊不檢查遊戲資源檔的內容。</td></tr>
+      <tr><td><b>Lua 原始碼</b>（純文字）</td><td>遊戲自帶的 LuaJIT（<code>bin/lua51.dll</code>，2.1 版）</td><td>沒有載入任何新的 DLL、沒有建立外部執行緒、沒有改任何一個 byte 的程式碼。對作業系統來說，只是遊戲自己的直譯器在處理一段文字。</td></tr>
+      <tr><td><b>JIT 產生的機器碼</b></td><td>LuaJIT 把常跑的 Lua 編譯成機器碼，放在它自己配置的可執行記憶體</td><td>這是遊戲跑任何 Lua 時本來就會做的事（Loader v18 調大的就是這塊快取）。反作弊如果禁止「程序裡出現新的可執行記憶體」，會連遊戲自己的 Lua 一起擋掉。</td></tr>
+      <tr><td><b>FFI 呼叫 Windows API</b><br><code>ReadProcessMemory</code> 等</td><td>遊戲程序自己呼叫 kernel32</td><td>呼叫者就是遊戲程序本身，用的是自己的虛擬 handle（-1），沒有任何「外部程式碰遊戲」的動作。</td></tr>
+      <tr><td><b>寫入的那 1 個 byte</b>（Plate Fix）</td><td>遊戲的遮罩更新函式下一幀讀到它</td><td>寫在資料區，值跟 gore 本來會寫的一樣；程式碼雜湊檢查只看程式碼區段。</td></tr>
+    </tbody>
+  </table></div>
+  <p>對照一下真正的外掛通常怎麼做：另一個 exe 開遊戲的 handle（被驅動攔截）、把 DLL 注入遊戲（多出一個不認識的模組）、修改程式碼讓子彈無限（程式碼雜湊對不上）。這三件事模組都沒有做。</p>
+  <p>這也說明了為什麼 GameGuard 擋得住外部的 Cheat Engine，卻擋不住 Recon：Recon 讀記憶體用的跟 Plate Fix 是同一條路。所以界線不在技術，而在<b>做什麼</b>：我們的模組只讀資料、只改自己畫面上的東西，不影響傷害、碰撞、網路，也不碰其他玩家。</p>
+
+  <div class="note warn"><b>「沒被擋」不等於「被允許」。</b>這仍然是非官方修改，GameGuard 隨時會自動更新、加入新的檢查。所以設計上堅持：不碰程式碼、不送封包、只寫跟遊戲原本行為一模一樣的值。萬一規則改變，風險和影響範圍也盡量小。</div>
+  <div class="grid2">
+    <div class="card"><h4>不碰程式碼</h4><p>不修改任何 code bytes（不會觸發 GameGuard 的程式碼雜湊檢查），不 hook 函式，不送網路封包。只呼叫引擎開放給 Lua 的 API 和 Windows 的記憶體讀寫 API。</p></div>
+    <div class="card"><h4>出錯就退出</h4><p>整個每幀邏輯包在 <code>pcall</code> 裡：第一次 Lua 錯誤就永久解除（拆掉 Gui、寫 log），原本的 <code>update()</code> 照常執行，遊戲不受影響。</p></div>
+    <div class="card"><h4>記憶體存取</h4><p>只用 Read/WriteProcessMemory，位址錯了只會回傳失敗。每次讀都重新驗證指紋；任何一項不符就跳過這一步並記錄原因。</p></div>
+    <div class="card"><h4>引擎呼叫守則</h4><ul><li>每次呼叫前確認 world 還活著（<code>world_is_live</code>）</li><li>對任何單位呼叫前先 <code>Unit.alive(u)</code></li><li>Hive Lord 死後完全不碰屍體</li><li>完全不呼叫 <code>stingray.Network.*</code>（會讓引擎直接終止）</li></ul></div>
+  </div>
+  <div class="hudlog"><b>Hive Lord HUD 此時</b>的設計原則就是這一章：HUD 只讀資料；Plate Fix 只寫一個「這塊板子要不要畫」的 bit，而且是遊戲自己本來就會寫的值；兩者都不改程式碼、不送網路封包、不影響其他玩家。</div>
+  <div class="takeaway"><b>重點</b><ol>
+    <li>反作弊找的是「外來的程式碼和外來的存取」，模組是由遊戲自己執行的資料。</li>
+    <li>沒被擋不等於被允許，界線在於做什麼：只改自己的畫面，不影響別人。</li>
+    <li>模組的能力等於一般程式，只裝可信、附原始碼的模組。</li>
+  </ol></div>
+  <details class="quiz"><summary>自我檢查：用同樣的方法做一個「自動瞄準」，技術上做得到嗎？該做嗎？</summary><p>技術上這扇門確實開著（第 1、2、5 章）。但它給自己不公平的優勢、破壞別人的遊戲，也很容易被封號。這份文件介紹的原理，界線一直是「只影響你自己的畫面和電腦」。</p></details>
+</section>
+
+<div class="part-banner" id="partR"><span>參考</span><small>開發時間線、方法、失敗與教訓、檔案、用語</small></div>
+
+<section id="history">
+  <div class="sec-kicker">參考</div>
+  <h2>開發歷程</h2>
+  <p class="lead">從「應該可以做一個 Hive Lord 血條，顯示主血和每塊裝甲的 HP」這一句話開始，5 天、121 個內部版本、3 次公開發行。每個版本都由作者在實際遊戲中測試，log 就是遙測資料。</p>
+  <div class="seg" id="tlFilter">
+    <button class="on" data-k="all">全部</button><button data-k="hud">HUD 功能</button><button data-k="fix">Plate Fix</button><button data-k="re">逆向與研究</button><button data-k="rel">發行</button>
+  </div>
+  <div class="tl" id="timeline">
+    <div class="tl-day">10/02 之前：打地基</div>
+    <div class="tl-item" data-k="re"><span class="ver">前置</span><b>CPU 模組與 Recon 偵察工具</b>：先前做 CPU 執行緒優化模組時，已經建好 LuaJIT FFI 呼叫 Windows API 的方式、唯讀記憶體偵察 addon（AOB 掃描、dump、PE 區段）、FileDiver 工具鏈（解遊戲資料表）、Ghidra 與 capstone 反組譯環境，也研究過 HUD+ 這個社群 HUD 模組的 Gui 用法。</div>
+
+    <div class="tl-day">10/03：從無到有</div>
+    <div class="tl-item" data-k="re"><span class="ver">離線</span><b>先離線把資料解完</b>：寫了 Go 工具 <code>hive-lord-health-dumper</code>，從遊戲的 datalib 解出 Hive Lord 的 HealthComponent：38 區、主血 150,000、每區 HP / 構造值 / 裝甲。發現 FileDiver 內建的結構定義已過時（實際大小 22,096 bytes），以及 DLInstance header 是 28 bytes 不是 24。</div>
+    <div class="tl-item" data-k="hud"><span class="ver">v0</span><b>第一次崩潰</b>：每個模擬 tick 都呼叫 <code>Gui.rect</code>，遊戲 1 分鐘和 3.5 分鐘後兩次硬當。原因：Gui 是保留模式，v0 每秒洩漏約 2,400 個圖元，而且向量參數格式猜錯。改照 HUD+ 的生命週期重寫。</div>
+    <div class="tl-item" data-k="re"><span class="ver">v7–v10</span><b>在記憶體裡找到 HP</b>：單位是 handle 不能走指標，只好分時掃描堆積，找 [150000, 150000, 15000×6] 這種序列。v8 從實際 dump 確認紀錄格式（主血在 Z−0xE4、裝甲在 Z−0x9C、38 區 HP 在 Z）。v9 失敗後，v10 改用「戰鬥中永遠不變的裝甲值」當指紋，這個方法一直用到最後。</div>
+    <div class="tl-item" data-k="re"><span class="ver">v11–v15</span><b>身體畫反了</b>：用 FileDiver 匯出模型骨架確認 spine0 在尾端，重畫剪影；主血改成直接讀欄位（用區域傷害推估的值永遠高 20k）。</div>
+    <div class="tl-item" data-k="hud"><span class="ver">v20–v30</span><b>介面成形</b>：Souls 風格 Boss 血條、受擊閃白、F7/F8 快捷鍵、剪影面板、淡入淡出、連擊傷害數字。v27 嘗試用遊戲原生字型，第一次繪製就讓遊戲當掉兩次，留下殭屍程序需要重開機，從此停用。</div>
+    <div class="tl-item" data-k="re"><span class="ver">v40–v55</span><b>中途加入的真相</b>：多次中途加入測試後確認：主血是快照、已裂開的板子收到精確的 −1、部分傷害完全不同步，之後的命中是逐次傳送而不是絕對值。因此加入「&lt;」標記。</div>
+    <div class="tl-item" data-k="hud"><span class="ver">v56–v62</span><b>出土警告</b>：解出 <code>animation_get_state</code> 14 格的意義。「出土前」訊號試了三種（頭部上升、第 4 格 = 3、停止移動），前兩種在 26 次出土的 log 裡命中率太低被淘汰，最後用「在地底停住不動」。</div>
+
+    <div class="tl-day">10/04：穩定與發行</div>
+    <div class="tl-item" data-k="hud"><span class="ver">v64</span><b>修掉戰鬥後的崩潰</b>：兩次崩潰都剛好在 Hive Lord 死後約 60 秒，原因是屍體被移除時我們還在對它呼叫引擎 API。改成死後完全不碰。</div>
+    <div class="tl-item" data-k="hud"><span class="ver">v65–v69</span><b>HL 標記</b>：<code>Camera.world_to_screen</code> 投影、畫面外箭頭；修正挑錯攝影機、自動校正 y 方向誤判；面板移到左邊避開任務清單。</div>
+    <div class="tl-item" data-k="rel"><span class="ver">v70</span><b>Release v1</b>：獨立打包成 Arsenal 模組（之前寄生在 Recon 偵察工具裡）。發現 Arsenal 每次部署會重排 patch 編號，固定寫入 patch_1 會蓋掉別人的模組，於是寫了只找自己 slot 的部署腳本。</div>
+    <div class="tl-item" data-k="hud"><span class="ver">v72–v80</span><b>全部改成選單</b>：接上 Mod Options Menu、移除所有快捷鍵、每個部件可選顯示時機、尺寸滑桿、預覽按鈕和倒數橫幅。</div>
+
+    <div class="tl-day">10/05：板子為什麼不掉</div>
+    <div class="tl-item" data-k="re"><span class="ver">逆向</span><b>板子破壞機制</b>：從 game.dll 找出區域狀態處理器 <code>0x925F10</code> 和 gore 路徑 <code>0x9057D0 / 0x903C70</code>，確認「碰撞」和「模型」是兩條獨立路徑；再分析網路 RPC（<code>0xBDE430</code>，1,253 個呼叫點），確認每台機器自己算傷害，主機只送結果。</div>
+    <div class="tl-item" data-k="hud"><span class="ver">v83</span><b>直接查遊戲的健康系統</b>：一個「板子炸了面板卻顯示 20 幾 %」的回報，查出是堆積掃描跟上了一份凍結的舊副本。改為從 <code>game.dll+0x3326688</code> 直接查表，從此不再搜尋、不再卡住，CPU 成本也大降。</div>
+    <div class="tl-item" data-k="fix"><span class="ver">v86</span><b>第一版 Plate Fix</b>：在 HUD 裡加上「摧毀 1.5 秒仍在畫就寫隱藏位元」。</div>
+    <div class="tl-item" data-k="rel"><span class="ver">v87</span><b>Release v2</b>：Plate Fix 拆成獨立 addon，在 Arsenal 裡是可單獨勾選的選項，不裝 HUD 也能用。</div>
+
+    <div class="tl-day">10/06：設計與驗證</div>
+    <div class="tl-item" data-k="hud"><span class="ver">v88–v99</span><b>視覺迭代</b>：裝甲 % 標在模型上（後來移除）、單色模式、low-poly 畫風（每個零件只用 3–5 個面）、正面視角的頭。</div>
+    <div class="tl-item" data-k="hud"><span class="ver">v100–v103</span><b>遊戲風格</b>：彩色模式的 Elden Ring 血條、單色模式仿 HD2 彈藥條、仿「Bug Breach Detected」的警告橫幅、仿小隊標記的紅色 HL 標記。</div>
+    <div class="tl-item" data-k="hud"><span class="ver">v105–v106</span><b>顏色校正與真三角形</b>：從截圖量到 Gui 顏色被放大約 3 倍，加上反向換算。反組譯 helldivers2.exe 確認 <code>Gui.triangle</code> 的參數格式後，low-poly 面改用真正的三角形。</div>
+    <div class="tl-item" data-k="fix"><span class="ver">PF v3</span><b>Plate Fix 在遊戲中驗證成功</b>：第一次真的遇到卡住的板子時，v2 寫入了但判斷錯誤（只看 base 遮罩）。逆向遮罩更新函式後改成同時看 base 和 applied，v3 在下一場兩塊板子上都成功。</div>
+    <div class="tl-item" data-k="hud"><span class="ver">v107–v109</span><b>誠實的數字</b>：<code>hostdiag</code> 判斷每次狀態變化來自主機還是本機；主機修正過一次後，所有板子 % 改為上限「&lt;」。單色成為預設。</div>
+
+    <div class="tl-day">10/07：收尾</div>
+    <div class="tl-item" data-k="hud"><span class="ver">v110–v115</span><b>光影實驗與定案</b>：做了 3D 細分光照（v110–v113），作者選擇退回 v109；之後定案為「焦痕」效果：保留 low-poly，每個三角形依固定權重不均勻變黑。</div>
+    <div class="tl-item" data-k="hud"><span class="ver">v116</span><b>功能凍結 + 重構</b>：作者說「感覺沒有東西要修改了」。HUD 從 3,568 行精簡到約 2,600 行；研究用的診斷移到另一個開發用 addon；註解清掉版本歷史和 log 名稱。</div>
+    <div class="tl-item" data-k="rel"><span class="ver">v121</span><b>Release v3</b>：粗體文字修正（v117–v120）、移除探測 log、新圖示（從測試環境直接渲染目前的面板）。</div>
+  </div>
+</section>
+<section id="method">
+  <div class="sec-kicker">參考</div>
+  <h2>開發方法與工具鏈</h2>
+  <p class="lead">原則是「離線優先」：能在電腦上算完、測完的事，就不讓作者進遊戲測。遊戲時間只用來回答離線回答不了的問題。</p>
+  <div class="grid2">
+    <div class="card">
+      <h4>1. 從遊戲資料離線解答</h4>
+      <ul>
+        <li><b>FileDiver</b>（Go）：解遊戲封存檔、datalib、typelib；另外寫了 <code>hive-lord-health-dumper</code>、<code>entity-probe</code>、<code>sm-state-dumper</code> 等小工具。</li>
+        <li>模型匯出成 glb 看骨架與碰撞節點名稱。</li>
+        <li>雜湊暴力破解（<code>murmur64(name) &gt;&gt; 32</code>）還原區域名稱。</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h4>2. 靜態逆向</h4>
+      <ul>
+        <li>遊戲跑起來後用 Recon addon 把已解殼的 game.dll / helldivers2.exe dump 出來。</li>
+        <li>用 Python + capstone 秒級掃描特定偏移量的存取，找出函式；Ghidra 輔助。</li>
+        <li>所有發現寫進 <code>tools/research/hive_lord_armor_break.md</code> 等筆記。</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h4>3. 離線測試</h4>
+      <ul>
+        <li>用 <b>lupa</b>（Python 內嵌 Lua）載入真正的模組原始碼，搭配假的引擎 API（World、Unit、Gui、Camera…）與假的遊戲記憶體結構。</li>
+        <li><b>變異測試</b>：故意把程式改壞（例如拿掉健全性檢查），確認測試會失敗。大多數版本都記錄「殺掉 N 個變異」。</li>
+        <li>模擬「對已銷毀單位呼叫就崩潰」的 stub，驗證死後 70 秒內 0 次引擎呼叫。</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h4>4. 看得到的設計審查</h4>
+      <ul>
+        <li>把測試中記錄下的 Gui 呼叫渲染成 PNG（PIL），在進遊戲前就能看到版面。</li>
+        <li>模擬遊戲的顏色放大，預覽實際效果。</li>
+        <li>展示圖和模組圖示也由同一套渲染器產生。</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h4>5. 遊戲中驗證</h4>
+      <ul>
+        <li>作者正常遊玩（永遠是用戶端），HUD 的 log 記錄所需資訊：<code>hostdiag</code>、<code>MAIN JUMP</code>、<code>[PlateFix]</code>、每 30 秒的更新率與每幀成本。</li>
+        <li>每個實驗性 API 在第一次呼叫前先寫一行 log：如果遊戲當掉，最後一行就是元兇。</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h4>6. 建置與部署</h4>
+      <ul>
+        <li><code>tools/build_hive_lord.py</code> 產生 Arsenal 可匯入的 zip（固定 GUID，選項各自一個 patch）。</li>
+        <li><code>tools/deploy_hive_lord.sh</code> 只覆寫含有我們 addon 標記的 slot，遊戲執行中會拒絕部署。</li>
+      </ul>
+    </div>
+  </div>
+</section>
+<section id="dropped">
+  <div class="sec-kicker">參考</div>
+  <h2>試過但放棄的</h2>
+  <div class="tbl-wrap"><table>
+    <thead><tr><th>做法</th><th>結果</th><th>原因</th></tr></thead>
+    <tbody>
+      <tr><td>遊戲原生字型</td><td>停用</td><td>第一次繪製就讓遊戲當掉，兩次都留下殭屍程序</td></tr>
+      <tr><td>堆積掃描找 HP</td><td>降為備援</td><td>會跟上凍結的舊副本；改查健康系統</td></tr>
+      <tr><td>用區域傷害推估主血</td><td>移除</td><td>漏算爆炸和預設區傷害，永遠高約 20k</td></tr>
+      <tr><td>頭部上升 / 第 4 格動畫值預測出土</td><td>移除</td><td>26 次出土中 19 次沒有預兆；第 4 格其實是受擊反應</td></tr>
+      <tr><td>讓主機廣播真實血量（rpc_heal 等）</td><td>放棄</td><td>Hive Lord 不在同步系統裡；且會影響他人遊戲</td></tr>
+      <tr><td>把 Hive Lord 拴在 100 m 內</td><td>不可能</td><td>敵人 AI 在主機上跑，行為樹是 C++</td></tr>
+      <tr><td>裝甲 % 標在模型上</td><td>v116 移除</td><td>作者決定；碰撞節點不會動，要改用動畫骨頭</td></tr>
+      <tr><td>F6–F11 快捷鍵</td><td>v76 移除</td><td>全部改到選單</td></tr>
+      <tr><td>單色「挖空」板子、3D 細分光照</td><td>退回</td><td>作者偏好；最後定案為焦痕效果</td></tr>
+      <tr><td>每個字都疊加粗體副本（位移 3 px）</td><td>改寫</td><td>字會散開；改成 1 px 階梯疊加、整數像素</td></tr>
+    </tbody>
+  </table></div>
+</section>
+<section id="pitfalls">
+  <div class="sec-kicker">參考</div>
+  <h2>踩過的坑</h2>
+  <div class="tbl-wrap"><table>
+    <thead><tr><th>現象</th><th>原因</th><th>對策</th></tr></thead>
+    <tbody>
+      <tr><td>開遊戲 1–3 分鐘後當掉</td><td>把保留模式 Gui 當立即模式用，圖元無限增加</td><td>建立一次、之後只 update；world 死掉就遺忘</td></tr>
+      <tr><td>Hive Lord 死後約 60 秒當掉</td><td>屍體被移除時還在呼叫 <code>Unit.alive</code> 等 API</td><td>死後完全不碰，用位址跳過</td></tr>
+      <tr><td>距離永遠是 0 m</td><td><code>Unit.world_position(u, 0)</code> 對所有單位回傳原點</td><td>改用具名骨頭（head、root）</td></tr>
+      <tr><td>文字一直空白</td><td>同一幀建立又更新的文字不會顯示</td><td>用真實內容建立，建立當幀不更新</td></tr>
+      <tr><td>板子上有髒點</td><td>顏色 alpha 92%，地形透過來</td><td>需要清楚的東西一律不透明</td></tr>
+      <tr><td>標記上下顛倒</td><td>自動校正取樣時兩點都在畫面外</td><td>固定方向，只在兩點都在畫面內時檢查</td></tr>
+      <tr><td>部署後遊戲載入舊版、別人的模組被蓋掉</td><td>Arsenal 每次部署重排 patch 編號</td><td>部署腳本依內容標記找 slot</td></tr>
+      <tr><td>重新上色後三角形全部塌成一條線</td><td><code>Gui.triangle</code> 會交換 y/z，<code>Gui.update_triangle</code> 不會</td><td>v113 修正後連同整段實驗一起退回</td></tr>
+      <tr><td>主程式區塊無法再加 local</td><td>LuaJIT 每個函式最多 200 個 local</td><td>新功能包在 <code>do … end</code> 區塊或掛在 H 表上</td></tr>
+      <tr><td>「Armor panel」選單列永遠是灰的</td><td>選單把 HUD 放在原生 DISPLAY 頁，無邊框視窗模式會把第 3 列（解析度）變灰</td><td>不是 HUD 的 bug，不用修</td></tr>
+    </tbody>
+  </table></div>
+</section>
+<section id="files">
+  <div class="sec-kicker">參考</div>
+  <h2>檔案、建置與部署</h2>
+  <div class="tbl-wrap"><table>
+    <thead><tr><th>路徑</th><th>內容</th></tr></thead>
+    <tbody>
+      <tr><td><code>src/hive_lord_hud.lua</code></td><td>HUD 本體（資源名 <code>mods/hivelordhud/hive_lord_hud</code>）。檔頭有各段落索引：Hive Lord data、Detection、Live HP locator、Zone tracking、GUI、Per-frame worker、Settings、Install。</td></tr>
+      <tr><td><code>src/hive_lord_plate_fix.lua</code></td><td>Dead Plate Fix（<code>mods/hivelordhud/plate_fix</code>），可單獨運作。</td></tr>
+      <tr><td><code>src/hive_lord_diag.lua</code></td><td>開發用診斷 addon（不隨發行版附帶）：actor probe、區域變化、gore / 網路診斷。</td></tr>
+      <tr><td><code>tools/build_hive_lord.py</code></td><td>打包 <code>dist/HiveLordHUDv3.zip</code> 與 <code>dist/direct_hive_lord/</code>。</td></tr>
+      <tr><td><code>tools/deploy_hive_lord.sh</code></td><td>直接部署到遊戲資料夾（只動自己的 slot）。</td></tr>
+      <tr><td><code>tools/showcase_render.py</code>、<code>tools/icon_render.py</code></td><td>從測試環境渲染展示圖與模組圖示。</td></tr>
+      <tr><td><code>tools/research/hive_lord_*.md / .json</code></td><td>資料表、行為、破壞機制、網路的逆向筆記。</td></tr>
+      <tr><td><code>docs/hive_lord_hud/CHANGELOG.md</code>、<code>DESCRIPTION.md</code></td><td>模組頁面用的英文更新紀錄與說明。</td></tr>
+    </tbody>
+  </table></div>
+  <h4>安裝</h4>
+  <ol>
+    <li>在 Arsenal 啟用 <b>Bingus Shared Loader</b>（選配：Vanilla Plus Megapack 的 Mod Options Menu）。</li>
+    <li>匯入 <code>HiveLordHUDv3.zip</code>，在 Options 勾選 Hive Lord HUD、Dead Plate Fix 或兩者，然後 Deploy。</li>
+    <li>log 在 <code>%LOCALAPPDATA%\CowboyBingus\Helldivers2\Logs\HiveLordHud_*.log</code>，<code>[PlateFix]</code> 開頭的是修正紀錄。</li>
+  </ol>
+  <h4>打包格式（簡述）</h4>
+  <pre><code>HiveLordHUDv3.zip
+├─ manifest.json        GUID 4ef072f2-…（固定，Arsenal 靠它辨識同一個模組的更新）
+├─ icon.png
+├─ options/core/9ba626afa44a3aa3.patch_0       ← HUD 的 lua 資源
+├─ options/platefix/9ba626afa44a3aa3.patch_0   ← Plate Fix 的 lua 資源
+└─ Source/…                                    ← 原始碼明文
+
+每個 patch = Stingray 封存檔：header + type 表（lua）+ 檔案表，資源名稱用 murmur64 雜湊，
+資料區 16 bytes 對齊；lua 資源 = (長度, 2 = 純文字原始碼) + 原始碼，第一行必須是 -- HD2-Addon: &lt;資源名&gt;</code></pre>
+</section>
+
+<section id="glossary">
+  <h2>用語小辭典</h2>
+  <div class="tbl-wrap"><table>
+    <thead><tr><th>用語</th><th>意思</th><th>在哪一章</th></tr></thead>
+    <tbody>
+      <tr><td>機器碼 / 編譯</td><td>CPU 能直接執行的 bytes / 把原始碼翻成機器碼</td><td><a href="#m1">第 1 章</a></td></tr>
+      <tr><td>.exe / .dll / 程序</td><td>裝機器碼的檔案 / 執行中的程式</td><td><a href="#m1">第 1 章</a></td></tr>
+      <tr><td>引擎</td><td>做遊戲的共用底層（HD2 是 Stingray）</td><td><a href="#m1">第 1 章</a></td></tr>
+      <tr><td>資源 / 封存檔 / patch 檔</td><td>遊戲用的檔案 / 打包它們的大檔 / 同名資源會蓋過原版的封存檔</td><td><a href="#m1">第 1 章</a></td></tr>
+      <tr><td>雜湊 / murmur64</td><td>把文字變成固定長度數字的公式 / 遊戲用的那一種</td><td><a href="#m1">第 1 章</a></td></tr>
+      <tr><td>幀 / 遊戲迴圈</td><td>畫面更新一次 / 不停重複的更新與繪製</td><td><a href="#m2">第 2 章</a></td></tr>
+      <tr><td>Lua / LuaJIT</td><td>腳本語言 / 它的高速版本，HD2 內建</td><td><a href="#m2">第 2 章</a></td></tr>
+      <tr><td>全域變數 / update()</td><td>整個 Lua 環境共用的變數 / 引擎每幀呼叫的函式</td><td><a href="#m2">第 2 章</a></td></tr>
+      <tr><td>hook</td><td>把一個呼叫導到自己身上，再轉回原本的地方</td><td><a href="#m2">第 2 章</a></td></tr>
+      <tr><td>回呼</td><td>先交給別人、讓對方在某個時機呼叫的函式</td><td><a href="#m3">第 3 章</a></td></tr>
+      <tr><td>Loader / require</td><td>找出並執行所有模組的模組 / Lua 載入另一個腳本</td><td><a href="#m3">第 3 章</a></td></tr>
+      <tr><td>模組管理器</td><td>Arsenal、HD2MM：把模組寫成 patch 檔的工具</td><td><a href="#m3">第 3 章</a></td></tr>
+      <tr><td>log</td><td>程式寫下發生了什麼的文字檔</td><td><a href="#m3">第 3 章</a></td></tr>
+      <tr><td>API</td><td>開放給別人呼叫的函式</td><td><a href="#m4">第 4 章</a></td></tr>
+      <tr><td>world / unit / 骨頭</td><td>場景 / 場景裡的物件 / 模型骨架的節點</td><td><a href="#m4">第 4 章</a></td></tr>
+      <tr><td>handle</td><td>代表某個東西的號碼牌</td><td><a href="#m4">第 4 章</a></td></tr>
+      <tr><td>Gui / 保留模式</td><td>引擎畫 2D 介面的功能 / 建立一次、之後修改</td><td><a href="#m4">第 4 章</a></td></tr>
+      <tr><td>pcall / assert</td><td>攔住 Lua 錯誤的呼叫 / 引擎的自我檢查，失敗直接結束遊戲</td><td><a href="#m4">第 4 章</a></td></tr>
+      <tr><td>FFI</td><td>從 Lua 呼叫 C 函式、操作記憶體的功能</td><td><a href="#m5">第 5 章</a></td></tr>
+      <tr><td>Windows API</td><td>Windows 開放給所有程式呼叫的函式</td><td><a href="#m5">第 5 章</a></td></tr>
+      <tr><td>byte / 十六進位 / int32</td><td>記憶體最小單位 / 0x 開頭的寫法 / 4 bytes 的整數</td><td><a href="#m6">第 6 章</a></td></tr>
+      <tr><td>虛擬記憶體 / 分頁</td><td>每個程序自己的位址空間 / 4 KB 的管理單位</td><td><a href="#m6">第 6 章</a></td></tr>
+      <tr><td>存取違規</td><td>讀寫不存在或沒權限的位址，程式直接當掉</td><td><a href="#m6">第 6 章</a></td></tr>
+      <tr><td>程式碼區 / 資料區 / 堆積</td><td>機器碼 / 固定位置的全域變數 / 執行中配置的資料</td><td><a href="#m6">第 6 章</a></td></tr>
+      <tr><td>ASLR / 基址 / RVA</td><td>dll 位置每次不同 / 這次的位置 / 從 dll 開頭算起的位移</td><td><a href="#m6">第 6 章</a></td></tr>
+      <tr><td>指標</td><td>存著另一個位址的值</td><td><a href="#m6">第 6 章</a></td></tr>
+      <tr><td>結構 / 位移 / 陣列 / 跨距</td><td>一包資料 / 欄位在第幾個 byte / 一筆接一筆 / 每筆大小</td><td><a href="#m7">第 7 章</a></td></tr>
+      <tr><td>ECS（實體 / 元件 / 系統）</td><td>編號 / 掛在編號上的資料 / 集中管理同一種資料的程式</td><td><a href="#m7">第 7 章</a></td></tr>
+      <tr><td>雜湊表</td><td>用編號查到第幾筆的表</td><td><a href="#m7">第 7 章</a></td></tr>
+      <tr><td>設計數值 / 執行中數值 / 指紋</td><td>資料檔裡的值 / 記憶體裡的值 / 用來確認找對東西的不變值</td><td><a href="#m7">第 7 章</a></td></tr>
+      <tr><td>名稱清單</td><td>雜湊 ↔ 原名的對照表</td><td><a href="#m8">第 8 章</a></td></tr>
+      <tr><td>datalib / 型別庫</td><td>設計數值表 / 描述結構欄位位移的檔案</td><td><a href="#m8">第 8 章</a></td></tr>
+      <tr><td>偵察模組</td><td>只讀不寫、把觀察結果寫 log 的模組</td><td><a href="#m9">第 9 章</a></td></tr>
+      <tr><td>PE 格式 / 區段</td><td>exe、dll 的檔案格式 / 它分成的區域</td><td><a href="#m9">第 9 章</a></td></tr>
+      <tr><td>dump</td><td>把一段記憶體存成檔案</td><td><a href="#m9">第 9 章</a></td></tr>
+      <tr><td>特徵碼（AOB）</td><td>一串用來搜尋的 bytes</td><td><a href="#m9">第 9 章</a></td></tr>
+      <tr><td>加殼（Themida）</td><td>程式碼加密，執行時才解開</td><td><a href="#m10">第 10 章</a></td></tr>
+      <tr><td>反組譯 / 組合語言 / 暫存器</td><td>把機器碼轉成文字指令 / 那種文字指令 / CPU 內的小格子</td><td><a href="#m10">第 10 章</a></td></tr>
+      <tr><td>交叉引用 / 靜態 / 動態分析</td><td>找出誰用到某個位址 / 讀機器碼 / 執行中觀察</td><td><a href="#m10">第 10 章</a></td></tr>
+      <tr><td>ReadProcessMemory</td><td>讀記憶體的 Windows API，位址錯了只回傳失敗</td><td><a href="#m11">第 11 章</a></td></tr>
+      <tr><td>舊副本</td><td>遊戲不用、卻還留在記憶體裡的資料</td><td><a href="#m11">第 11 章</a></td></tr>
+      <tr><td>時間預算</td><td>每幀允許模組花的時間</td><td><a href="#m11">第 11 章</a></td></tr>
+      <tr><td>單例守衛 / 解除武裝</td><td>確保只載入一次 / 出錯後永久停止自己</td><td><a href="#m12">第 12 章</a></td></tr>
+      <tr><td>lupa / 假物件 / 變異測試</td><td>在 Python 跑 Lua / 模仿遊戲 API 的假函式 / 故意改壞確認測試會失敗</td><td><a href="#m13">第 13 章</a></td></tr>
+      <tr><td>manifest / GUID / slot</td><td>模組描述檔 / 模組永遠不變的身分證 / patch 檔的編號位置</td><td><a href="#m14">第 14 章</a></td></tr>
+      <tr><td>主機 / 用戶端 / 權威</td><td>開房的人 / 加入的人 / 誰說了算</td><td><a href="#m15">第 15 章</a></td></tr>
+      <tr><td>build</td><td>遊戲版本號</td><td><a href="#m15">第 15 章</a></td></tr>
+      <tr><td>反作弊 / GameGuard</td><td>監視外部程式動遊戲的程式 / HD2 用的那一套</td><td><a href="#m16">第 16 章</a></td></tr>
+      <tr><td>程式碼雜湊檢查 / 注入</td><td>檢查程式碼有沒有被改 / 把程式碼塞進別的程序執行</td><td><a href="#m16">第 16 章</a></td></tr>
+    </tbody>
+  </table></div>
+  <p style="color:var(--sub);font-size:.85rem;border-top:1px solid var(--line);padding-top:14px;margin-top:30px">文件日期 2026-10-07。所有位址對應遊戲 build 25480438；組合語言取自 10/02 的解殼 dump。</p>
+</section>
+</main>
+
+</div>
+
+<script>
+(function () {
+  'use strict';
+  /* ---------- helpers shared by the reused demos ---------- */
+  function rgb(c) { return 'rgb(' + c.map(function (x) { return Math.max(0, Math.min(255, Math.round(x))); }).join(',') + ')'; }
+
+  /* ---------- murmur64 (same as the game / tools/build.py) ---------- */
+  function utf8(str) { return new TextEncoder().encode(str); }
+  function murmur64(data) {
+    var M = 0xc6a4a7935bd1e995n, R = 47n, MASK = (1n << 64n) - 1n;
+    var h = (BigInt(data.length) * M) & MASK;
+    var full = data.length - (data.length % 8), i, b, k, t;
+    for (i = 0; i < full; i += 8) {
+      k = 0n;
+      for (b = 7; b >= 0; b--) k = (k << 8n) | BigInt(data[i + b]);
+      k = (k * M) & MASK; k ^= k >> R; k = (k * M) & MASK;
+      h ^= k; h = (h * M) & MASK;
+    }
+    if (data.length > full) {
+      t = 0n;
+      for (b = data.length - 1; b >= full; b--) t = (t << 8n) | BigInt(data[b]);
+      h ^= t; h = (h * M) & MASK;
+    }
+    h ^= h >> R; h = (h * M) & MASK; h ^= h >> R;
+    return h;
+  }
+  function hex64(h) { var s = h.toString(16).toUpperCase(); while (s.length < 16) s = '0' + s; return '0x' + s; }
+  var hashIn = document.getElementById('hashIn');
+  if (hashIn) {
+    var drawHash = function () {
+      var h = murmur64(utf8(hashIn.value));
+      document.getElementById('hashOut').innerHTML = 'murmur64 = <b>' + hex64(h) + '</b>　（改一個字，整個數字都會變；但同樣的文字永遠得到同樣的數字）';
+    };
+    hashIn.addEventListener('input', drawHash);
+    drawHash();
+  }
+
+  /* ---------- patch archive byte viewer (same layout as tools/build.py) ---------- */
+  var arcName = document.getElementById('arcName'), arcSrc = document.getElementById('arcSrc');
+  if (arcName && arcSrc) {
+    var LUA_TYPE = 0xA14E8DFA2CD117E2n;
+    var SEGS = [
+      { k: 'hdr', label: '標頭（72 bytes：魔數 0xF0000011、型別數 1、資源數 1、總大小）', color: '#ffe012' },
+      { k: 'typ', label: '型別表（32 bytes：lua 的型別雜湊）', color: '#6aa8ff' },
+      { k: 'fil', label: '檔案表（80 bytes：名稱雜湊、型別雜湊、資料位置、大小）', color: '#4cc46a' },
+      { k: 'pad', label: '補零（對齊到 16 的倍數）', color: '#5a6170' },
+      { k: 'res', label: '資源標頭（原始碼長度、2 = 純文字）', color: '#e0463a' },
+      { k: 'src', label: '原始碼本身', color: '#c07cf0' }
+    ];
+    var COLOR = {}; SEGS.forEach(function (s) { COLOR[s.k] = s.color; });
+    document.getElementById('arcLegend').innerHTML = SEGS.map(function (s) {
+      return '<span style="display:inline-block;margin:2px 10px 2px 0"><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:' + s.color + ';margin-right:5px"></span>' + s.label + '</span>';
+    }).join('');
+    var drawArc = function () {
+      var body = utf8(arcSrc.value.replace(/\r\n/g, '\n'));
+      var nameHash = murmur64(utf8(arcName.value));
+      var resLen = 8 + body.length, padded = resLen + ((16 - resLen % 16) % 16);
+      var dataStart = (104 + 80 + 15) & ~15;
+      var buf = new ArrayBuffer(dataStart + padded), dv = new DataView(buf), seg = new Array(buf.byteLength);
+      var o = 0;
+      function mark(k, n) { for (var i = 0; i < n; i++) seg[o + i] = k; }
+      function u32(v) { dv.setUint32(o, v, true); o += 4; }
+      function u64(v) { dv.setBigUint64(o, BigInt(v), true); o += 8; }
+      mark('hdr', 72); u32(0xF0000011); u32(1); u32(1); o += 20; u64(dataStart + padded); u64(0); o += 24;
+      mark('typ', 32); u32(0); u32(0); u64(LUA_TYPE); u32(1); u32(0); u32(16); u32(16);
+      mark('fil', 80); u64(nameHash); u64(LUA_TYPE); u64(dataStart); u64(0); u64(0); u64(0); u64(0);
+      u32(resLen); u32(0); u32(0); u32(16); u32(16); u32(0);
+      mark('pad', dataStart - o); o = dataStart;
+      mark('res', 8); u32(body.length); u32(2);
+      mark('src', body.length); new Uint8Array(buf, o, body.length).set(body); o += body.length;
+      mark('pad', buf.byteLength - o);
+      var bytes = new Uint8Array(buf), lines = [];
+      for (var row = 0; row < bytes.length; row += 16) {
+        var cells = [];
+        for (var j = row; j < Math.min(row + 16, bytes.length); j++) {
+          var hx = (bytes[j] + 256).toString(16).slice(1).toUpperCase();
+          cells.push('<span style="color:' + COLOR[seg[j]] + '">' + hx + '</span>');
+        }
+        lines.push('<span class="off">' + (row + 0x10000).toString(16).slice(1).toUpperCase() + '</span>  ' + cells.join(' '));
+      }
+      document.getElementById('arcHex').innerHTML = lines.join('\n') +
+        '\n\n<span class="off">名稱雜湊 ' + hex64(nameHash) + '（在 0x0068，低位在前）　總大小 ' + bytes.length + ' bytes</span>';
+    };
+    arcName.addEventListener('input', drawArc);
+    arcSrc.addEventListener('input', drawArc);
+    drawArc();
+  }
+
+  /* ---------- comment colouring for lua blocks ---------- */
+  Array.prototype.forEach.call(document.querySelectorAll('pre.lua'), function (pre) {
+    var code = pre.querySelector('code') || pre;
+    code.innerHTML = code.textContent.split('\n').map(function (line) {
+      var at = line.indexOf('--');
+      var e = function (s) { return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); };
+      return at < 0 ? e(line) : e(line.slice(0, at)) + '<span class="c">' + e(line.slice(at)) + '</span>';
+    }).join('\n');
+  });
+
+  /* ---------- theme ---------- */
+  var root = document.documentElement;
+  var themeBtn = document.getElementById('themeBtn');
+  function setTheme(t) {
+    root.setAttribute('data-theme', t);
+    themeBtn.textContent = t === 'light' ? '切換深色' : '切換淺色';
+    try { localStorage.setItem('hd2-modding-principles-theme', t); } catch (e) {}
+  }
+  var saved = null;
+  try { saved = localStorage.getItem('hd2-modding-principles-theme'); } catch (e) {}
+  setTheme(saved || 'dark');
+  themeBtn.addEventListener('click', function () {
+    setTheme(root.getAttribute('data-theme') === 'light' ? 'dark' : 'light');
+  });
+
+    /* ---------- mobile toc ---------- */
+  var toc = document.getElementById('toc');
+  document.getElementById('menuBtn').addEventListener('click', function () { toc.classList.toggle('open'); });
+  toc.addEventListener('click', function (e) { if (e.target.tagName === 'A') toc.classList.remove('open'); });
+
+    /* ---------- scrollspy ---------- */
+  var links = Array.prototype.slice.call(toc.querySelectorAll('a[href^="#"]'));
+  var targets = links.map(function (a) { return document.querySelector(a.getAttribute('href')); });
+  function spy() {
+    var y = window.scrollY + 80, current = 0;
+    for (var i = 0; i < targets.length; i++) {
+      if (targets[i] && targets[i].getBoundingClientRect().top + window.scrollY <= y) current = i;
+    }
+    links.forEach(function (a, i) { a.classList.toggle('active', i === current); });
+  }
+  window.addEventListener('scroll', spy, { passive: true });
+  spy();
+
+    /* ---------- segmented buttons helper ---------- */
+  function segment(id, attr, onPick) {
+    var box = document.getElementById(id);
+    box.addEventListener('click', function (e) {
+      var b = e.target.closest('button');
+      if (!b || !box.contains(b)) return;
+      Array.prototype.forEach.call(box.querySelectorAll('button'), function (x) { x.classList.toggle('on', x === b); });
+      onPick(b.getAttribute(attr));
+    });
+  }
+
+    /* ---------- memory map of one health record ---------- */
+  var REC = 0x1B8;
+  var fields = [
+    { s: 0x00, e: 0x14, name: '其他欄位', color: '#4a505b', d: '紀錄開頭的其他欄位，HUD 不使用。' },
+    { s: 0x14, e: 0x18, name: '主血', color: '#ffe012', d: '<b>+0x14 int32 主血量</b>（Z−0xE4）。最大 150,000，0 = 死亡。用戶端中途加入時這是快照，可能比實際高，HUD 顯示為「&lt;」。' },
+    { s: 0x18, e: 0x20, name: '', color: '#4a505b', d: '未使用。' },
+    { s: 0x20, e: 0x30, name: '狀態', color: '#6aa8ff', d: '<b>+0x20 區域狀態位元</b>（Z−0xD8）。每區 2 bit：0 存活、1 裂開、2 摧毀，每個 u64 放 32 區。HUD 逐幀比較它來判斷狀態變化來自主機還是本機（hostdiag）。' },
+    { s: 0x30, e: 0x5C, name: '', color: '#4a505b', d: '未使用。' },
+    { s: 0x5C, e: 0xF8, name: '裝甲 ×39（指紋）', color: '#4cc46a', d: '<b>+0x5C int32[39] 裝甲值</b>（Z−0x9C）：預設區 5，然後 slot 0–37 = 6, 10, 5×13, 2×7, 6, 6, 5×14。戰鬥中永遠不變，所以 HUD 和 Plate Fix 都用它來辨認「這是一隻 Hive Lord 的紀錄」。' },
+    { s: 0xF8, e: 0x190, name: '區域 HP ×38', color: '#e0463a', d: '<b>+0xF8 int32[38] 區域 HP</b>（= HUD 程式裡的 Z）。依 slot 順序排列；小於 0 代表正在扣構造值（板子已裂開），到 −35,000 代表摧毀。' },
+    { s: 0x190, e: 0x194, name: 'FFFF', color: '#c07cf0', d: '<b>+0x190 int32 = 0xFFFF</b> 結尾標記（Z+0x98），第二道指紋。' },
+    { s: 0x194, e: REC, name: '', color: '#4a505b', d: '紀錄剩餘部分，HUD 不使用。下一筆紀錄從 +0x1B8 開始。' }
+  ];
+  var memmap = document.getElementById('memmap'), memdetail = document.getElementById('memdetail');
+  fields.forEach(function (f) {
+    var div = document.createElement('div');
+    div.style.flex = String(f.e - f.s);
+    div.style.background = f.color;
+    div.textContent = f.name;
+    div.title = '+0x' + f.s.toString(16).toUpperCase() + ' – +0x' + f.e.toString(16).toUpperCase();
+    div.addEventListener('click', function () {
+      Array.prototype.forEach.call(memmap.children, function (c) { c.classList.remove('sel'); });
+      div.classList.add('sel');
+      memdetail.innerHTML = '<p class="mono" style="color:var(--sub);margin-bottom:2px">+0x' + f.s.toString(16).toUpperCase() +
+        ' … +0x' + f.e.toString(16).toUpperCase() + '（' + (f.e - f.s) + ' bytes）</p><p>' + f.d + '</p>';
+    });
+    memmap.appendChild(div);
+  });
+  memmap.children[6].click();
+
+    /* ---------- zone table ---------- */
+  var ZONES = [];
+  function z(slot, name, part, g, hp, con, armor) { ZONES.push({ slot: slot, name: name, part: part, g: g, hp: hp, con: con, armor: armor }); }
+  z(0, 'jaws', '下顎（頭）', 'HEAD', 150000, 0, 6);
+  z(1, 'crown', '頭冠（頭）', 'HEAD', 150000, 0, 10);
+  for (var k = 0; k < 6; k++) z(2 + k, 'spine' + (5 - k), '腹側裝甲板（前排，' + (k === 0 ? '最靠頭' : k === 5 ? '最靠尾' : '第 ' + (k + 1) + ' 塊') + '）', 'SPINE', 15000, 35000, 5);
+  z(8, 'boss', '尾端腹側板（lower sternal）', 'SPINE', 20000, 35000, 5);
+  for (k = 0; k < 5; k++) z(9 + k, 'spine' + (5 - k) + '_back', '背側裝甲板', 'SPINE', 15000, 35000, 5);
+  z(14, 'boss_back', '背側裝甲板（spine0 的背板）', 'SPINE', 15000, 35000, 5);
+  for (k = 0; k < 6; k++) z(15 + k, 'body_spine' + k, '內部的肉', 'BODY', 150000, 0, 2);
+  z(21, 'body_head', '嘴', 'BODY', 150000, 0, 2);
+  z(22, 'l_pincer', '左大顎', 'HEAD', 10000, 0, 6);
+  z(23, 'r_pincer', '右大顎', 'HEAD', 10000, 0, 6);
+  z(24, '(未解出)', '尾端的鰭（左）', 'FINS', 5000, 0, 5);
+  z(25, '(未解出)', '尾端的鰭（右）', 'FINS', 5000, 0, 5);
+  for (k = 0; k < 6; k++) {
+    z(26 + k * 2, 'spine' + k + '_l_leg', '鰭（左）', 'FINS', 5000, 0, 5);
+    z(27 + k * 2, 'spine' + k + '_r_leg', '鰭（右）', 'FINS', 5000, 0, 5);
+  }
+  ZONES.sort(function (a, b) { return a.slot - b.slot; });
+  var tbody = document.querySelector('#zoneTable tbody');
+  function fmt(n) { return n.toLocaleString('en-US'); }
+  function renderZones(g) {
+    tbody.innerHTML = ZONES.filter(function (r) { return g === 'all' || r.g === g; }).map(function (r) {
+      return '<tr><td class="num">' + r.slot + '</td><td class="mono">' + r.name + '</td><td>' + r.part + '</td><td class="num">' +
+        fmt(r.hp) + '</td><td class="num">' + (r.con ? fmt(r.con) : '—') + '</td><td class="num">' + r.armor + '</td></tr>';
+    }).join('');
+  }
+  renderZones('all');
+  segment('zoneFilter', 'data-g', renderZones);
+
+    /* ---------- colour correction demo ---------- */
+  var SAMPLES = [
+    { name: '血條紅 112,8,8', c: [112, 8, 8] },
+    { name: '殘影灰 140', c: [140, 140, 140] },
+    { name: '數字白 232', c: [232, 232, 232] },
+    { name: '摧毀 46', c: [46, 46, 46] }
+  ];
+  function colorOut(v, f) {
+    if (f <= 0) return Math.round(v);
+    var gain = 1 + 2 * f, black = 18 * f;
+    return Math.round(Math.min(255, v / gain + black));
+  }
+  function gameShows(v) { return Math.max(0, Math.min(255, 3 * (v - 18))); }
+  function drawSwatches() {
+    var f = Number(document.getElementById('cfRange').value) / 100;
+    document.getElementById('cfOut').textContent = Math.round(f * 100) + '%';
+    var html = '<div></div><div style="color:var(--sub)">想要的顏色</div><div style="color:var(--sub)">不校正：畫面上</div><div style="color:var(--sub)">校正後：畫面上</div>';
+    SAMPLES.forEach(function (s) {
+      var raw = s.c.map(gameShows);
+      var fixed = s.c.map(function (x) { return gameShows(colorOut(x, f)); });
+      function sw(c) {
+        var lum = 0.3 * c[0] + 0.59 * c[1] + 0.11 * c[2];
+        return '<div class="sw" style="background:' + rgb(c) + ';color:' + (lum > 140 ? '#111' : '#eee') + '">' + c.map(Math.round).join(',') + '</div>';
+      }
+      html += '<div>' + s.name + '</div>' + sw(s.c) + sw(raw) + sw(fixed);
+    });
+    document.getElementById('swatches').innerHTML = html;
+  }
+  document.getElementById('cfRange').addEventListener('input', drawSwatches);
+  drawSwatches();
+
+    /* ---------- int32 in memory demo ---------- */
+  var numIn = document.getElementById('numIn');
+  function hex2(n) { return (n < 16 ? '0' : '') + n.toString(16).toUpperCase(); }
+  function drawNum() {
+    var v = Math.trunc(Number(numIn.value) || 0);
+    v = Math.max(-2147483648, Math.min(2147483647, v));
+    var u = v >>> 0;   // two's complement view
+    var bytes = [u & 255, (u >>> 8) & 255, (u >>> 16) & 255, (u >>> 24) & 255];
+    var hex = u.toString(16).toUpperCase(); while (hex.length < 8) hex = '0' + hex;
+    document.getElementById('numOut').innerHTML =
+      '十進位：<b>' + v.toLocaleString('en-US') + '</b><br>' +
+      '十六進位（int32）：<b>0x' + hex + '</b>' + (v < 0 ? '　<span style="color:var(--sub)">負數用二補數表示，所以 -1 = 0xFFFFFFFF</span>' : '') + '<br>' +
+      '記憶體裡的 4 個 bytes（低位在前）：<b>' + bytes.map(hex2).join(' ') + '</b><br>' +
+      '<span style="color:var(--sub)">Recon 的 hex dump 看到的就是最後這一行。</span>';
+  }
+  numIn.addEventListener('input', drawNum);
+  numIn.parentElement.querySelector('.seg').addEventListener('click', function (e) {
+    var b = e.target.closest('button');
+    if (!b) return;
+    numIn.value = b.getAttribute('data-n');
+    drawNum();
+  });
+  drawNum();
+
+    /* ---------- virtual address -> page demo ---------- */
+  var addrIn = document.getElementById('addrIn');
+  function drawAddr() {
+    var out = document.getElementById('addrOut');
+    var txt = addrIn.value.trim().replace(/[_']/g, '');
+    var a;
+    try { a = BigInt(/^0x/i.test(txt) ? txt : '0x' + txt); } catch (e) { out.innerHTML = '請輸入十六進位位址，例如 0x7FFFB973EB78'; return; }
+    if (a < 0n) { out.innerHTML = '位址不能是負數'; return; }
+    var USER_END = 0x7FFFFFFFFFFFn, BASE = 0x7FFFB5F70000n, SIZE = 0x4744000n;
+    function h(x) { return '0x' + x.toString(16).toUpperCase(); }
+    var html = '分頁編號 = 位址 ÷ 0x1000 = <b>' + h(a >> 12n) + '</b><br>' +
+      '分頁內位移 = 位址 mod 0x1000 = <b>' + h(a & 0xFFFn) + '</b><br>' +
+      '這個分頁從 ' + h(a & ~0xFFFn) + ' 到 ' + h((a & ~0xFFFn) + 0xFFFn) + '（作業系統以這 4 KB 為單位決定它在 RAM、在 SSD，或不存在）<br>';
+    if (a > USER_END) html += '<span style="color:var(--red)">超出使用者空間（0x7FFFFFFFFFFF 以上屬於系統核心），程式無法存取</span>';
+    else if (a >= BASE && a < BASE + SIZE) html += '落在那次的 game.dll 裡（基址 ' + h(BASE) + '）：<b>RVA = ' + h(a - BASE) + '</b><span style="color:var(--sub)">　下次啟動基址會變，但 RVA 不變</span>';
+    else html += '<span style="color:var(--sub)">不在那次的 game.dll 範圍內（可能是堆積、其他 dll 或沒有配置的位址）</span>';
+    out.innerHTML = html;
+  }
+  addrIn.addEventListener('input', drawAddr);
+  drawAddr();
+
+    /* ---------- light syntax colouring for the asm / C++ pairs ---------- */
+  function esc(s) { return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
+  Array.prototype.forEach.call(document.querySelectorAll('pre.asm, pre.cpp'), function (pre) {
+    var isAsm = pre.classList.contains('asm');
+    pre.innerHTML = pre.textContent.split('\n').map(function (line) {
+      var at = isAsm ? line.indexOf(';') : line.indexOf('//');
+      if (at < 0) return esc(line);
+      return esc(line.slice(0, at)) + '<span class="c">' + esc(line.slice(at)) + '</span>';
+    }).join('\n');
+  });
+
+    /* ---------- timeline filter ---------- */
+  segment('tlFilter', 'data-k', function (k) {
+    var tl = document.getElementById('timeline');
+    Array.prototype.forEach.call(tl.querySelectorAll('.tl-item'), function (it) {
+      it.classList.toggle('hidden', k !== 'all' && it.getAttribute('data-k') !== k);
+    });
+    Array.prototype.forEach.call(tl.querySelectorAll('.tl-day'), function (day) {
+      var n = day.nextElementSibling, any = false;
+      while (n && !n.classList.contains('tl-day')) { if (!n.classList.contains('hidden')) any = true; n = n.nextElementSibling; }
+      day.classList.toggle('hidden', !any);
+    });
+  });
+})();
+</script>
+</body>
+</html>
