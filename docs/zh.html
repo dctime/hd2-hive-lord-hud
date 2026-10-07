@@ -206,6 +206,14 @@ pre code { overflow-wrap: normal; }
 .langswitch a:hover { background: var(--panel2); }
 .langswitch .on { background: var(--accent); color: var(--accent-ink); font-weight: 700; }
 @media (max-width: 900px) { .langswitch { top: 10px; right: 10px; font-size: .82rem; } .langswitch a, .langswitch span { padding: 5px 11px; } }
+.srcbox { border: 1px solid var(--line); border-left: 3px solid #c07cf0; border-radius: 0 10px 10px 0; background: var(--panel); padding: 10px 16px; margin: 18px 0 12px; }
+.srcbox > b:first-child { display: block; font-size: .78rem; letter-spacing: .1em; color: var(--sub); margin-bottom: 4px; }
+.srcbox ul { list-style: none; padding: 0; margin: 0; }
+.srcbox li { margin: 8px 0; }
+.srcbox .loc { font-family: Consolas, monospace; font-size: .85rem; }
+.srcbox details { border: 0; background: none; padding: 0; margin: 4px 0 0; }
+.srcbox details summary { font-weight: 400; font-size: .88rem; color: var(--sub); }
+.srcbox pre { margin: 6px 0 0; font-size: 12px; max-height: 420px; overflow: auto; }
 .menu-btn { display: none; }
 @media (max-width: 900px) {
   .wrap { grid-template-columns: 1fr; padding: 0 16px; }
@@ -250,6 +258,7 @@ pre code { overflow-wrap: normal; }
   <a href="#dropped">試過但放棄的</a>
   <a href="#pitfalls">踩過的坑</a>
   <a href="#files">下載的檔案</a>
+  <a href="source-zh.html">原始碼導讀</a>
   <a href="#glossary">用語小辭典</a>
   <div class="tools"><button id="themeBtn">切換淺色</button><a class="btn" href="index.html" hreflang="en" lang="en">English</a></div>
 </nav>
@@ -311,6 +320,7 @@ pre code { overflow-wrap: normal; }
     <li><b>新概念</b>：這一章第一次出現的詞，最多五、六個，用到之前先說明。</li>
     <li><b>內文</b>：盡量寫成「因為…所以…」，讓概念之間的關係看得見。</li>
     <li><b>Hive Lord HUD 此時</b>：這個原理在做 HUD 時實際發生了什麼。</li>
+    <li><b>在原始碼裡</b>：真正的模組裡實作這一章的那幾行，並連到有說明的原始碼頁。</li>
     <li><b>重點</b>與<b>自我檢查</b>：讀完先試著回答，再展開看答案。答不出來的，就是還沒建立起來的連結。</li>
   </ul>
   <div class="note">Hive Lord HUD 與 Dead Plate Fix 模組本身可以在 <a href="https://github.com/dctime/hd2-hive-lord-hud/releases/latest">GitHub Releases</a> 下載（zip 裡的 <code>Source/</code> 資料夾就是完整原始碼）。這份文件只講模組的原理。</div>
@@ -406,6 +416,54 @@ end</code></pre>
   <p>但這裡有一個前提：<b>這段程式本身得先被執行一次</b>，才能把 <code>update</code> 換掉。遊戲只會執行它自己知道的那幾個 Lua 腳本，不會去執行一個陌生的 Lua 資源。誰來執行第一次？這就是下一章的 Loader。</p>
 
   <div class="hudlog"><b>Hive Lord HUD 此時</b>確定了做法：HUD 要用 Lua 寫，搭在 <code>update</code> 上每幀執行。整個 HUD 最後的入口（<code>H.install()</code>）就是本章那五行的加強版：多了錯誤保護（第 4 章）和自我計時。</div>
+  <div class="srcbox"><b>在原始碼裡</b><ul><li><a class="loc" href="source-zh.html#hud-a32">hive_lord_hud.lua 第 2564–2619 行</a>　<b>hook：包住遊戲的 update()</b>：第 2 章那五行的完整版：先存原本的 update、換成自己的函式、每幀 pcall 執行 HUD、出錯就永久解除武裝，最後一定呼叫原本的 update。<details><summary>展開這段程式碼</summary><pre class="lua"><code>function H.install()
+    if H.armed then return true end
+    local original = rawget(_G, &#x27;update&#x27;)
+    if type(original) ~= &#x27;function&#x27; then
+        writer(&#x27;install refused: no global update()&#x27;)
+        return false
+    end
+    if not (Gui and Vector2 and Vector3 and Color and World and Unit and App) then
+        writer(&#x27;install refused: missing engine API&#x27;)
+        return false
+    end
+    H.text_ok = attempt(App.can_get, &#x27;font&#x27;, H.FONT) == true and attempt(App.can_get, &#x27;material&#x27;, H.FONT) == true
+    H.armed = true
+    -- Self-timing: how much frame time the HUD costs (QueryPerformanceCounter around H.update).
+    pcall(ffi.cdef, &#x27;int QueryPerformanceCounter(int64_t* c); int QueryPerformanceFrequency(int64_t* f);&#x27;)
+    local qpc, qbuf = nil, ffi.new(&#x27;int64_t[1]&#x27;)
+    pcall(function()
+        local k = ffi.load(&#x27;kernel32&#x27;)
+        k.QueryPerformanceFrequency(qbuf)
+        local freq = tonumber(qbuf[0])
+        if freq and freq &gt; 0 then
+            qpc = function() k.QueryPerformanceCounter(qbuf); return tonumber(qbuf[0]) * 1000 / freq end
+        end
+    end)
+    H.cost = {sum = 0, max = 0, n = 0, scan_sum = 0, scan_n = 0}
+    rawset(_G, &#x27;update&#x27;, function(...)
+        if H.armed then
+            local on = H.option_enabled()
+            if on ~= H.enabled then
+                H.enabled = on
+-- …（共 56 行，完整內容見原始碼頁）</code></pre></details></li><li><a class="loc" href="source-zh.html#fix-a44">plate_fix.lua 第 306–323 行</a>　<b>第二個 hook</b>：Plate Fix 也包住全域 update，跟 HUD 的包裝疊在一起。每個包裝都呼叫前一個，所以兩個模組可以同時存在。<details><summary>展開這段程式碼</summary><pre class="lua"><code>function M.install()
+    if M.armed then return true end
+    local original = rawget(_G, &#x27;update&#x27;)
+    if type(original) ~= &#x27;function&#x27; then writer(&#x27;install refused: no global update()&#x27;); return false end
+    M.armed = true
+    rawset(_G, &#x27;update&#x27;, function(...)
+        if M.armed then
+            if M.hello then writer(M.hello); M.hello = nil end
+            local ok, why = pcall(function() M.poll_option(); M.update() end)
+            if not ok then
+                M.armed = false
+                writer(&#x27;disarmed after fault: &#x27; .. tostring(why))
+            end
+        end
+        return original(...)
+    end)
+    return true
+end</code></pre></details></li></ul></div>
   <div class="takeaway"><b>重點</b><ol>
     <li>引擎內建 Lua，每一幀都會呼叫全域函式 <code>update</code>。</li>
     <li>全域變數可以被改，所以換掉 <code>update</code> 就能每幀執行自己的程式（hook）。</li>
@@ -500,6 +558,19 @@ mods/cowboybingus/consistent_vaulting: not installed
   </div>
 
   <div class="hudlog"><b>Hive Lord HUD 此時</b>的前 69 個版本，其實是跟我們自己寫的研究用偵察模組 Recon 打包在同一個模組裡（這個工具沒有公開，第 9 章會介紹它的原理），由 Loader 載入。到 v70 才獨立出來，有了自己的資源名稱 <code>mods/hivelordhud/hive_lord_hud</code>。之後的 Dead Plate Fix 則是第二個資源 <code>mods/hivelordhud/plate_fix</code>，在 Arsenal 裡是另一個可以單獨勾選的選項。</div>
+  <div class="srcbox"><b>在原始碼裡</b><ul><li><a class="loc" href="source-zh.html#hud-a0">hive_lord_hud.lua 第 1 行</a>　<b>Loader 找的那一行</b>：第一行就是 Loader 用來找到模組的宣告。名稱必須跟打包時的資源名稱完全一樣，而且要是明文，編譯成 bytecode 就會不見。<details><summary>展開這段程式碼</summary><pre class="lua"><code>-- HD2-Addon: mods/hivelordhud/hive_lord_hud</code></pre></details></li><li><a class="loc" href="source-zh.html#hud-a4">hive_lord_hud.lua 第 37–49 行</a>　<b>用 Loader 的共用 log 資料夾</b>：優先呼叫 Loader 提供的 open_log，log 就跟其他模組放在一起；沒有 Loader 才退回 %TEMP%。<details><summary>展開這段程式碼</summary><pre class="lua"><code>local function open_own_log()
+    if own_log ~= nil then return own_log end
+    own_log = false
+    local name = &#x27;HiveLordHud_&#x27; .. ((os and os.date and os.date(&#x27;%Y%m%d_%H%M%S&#x27;)) or &#x27;session&#x27;) .. &#x27;.log&#x27;
+    local loader = rawget(_G, &#x27;CowboyBingusModLoader&#x27;)
+    local ok, f = pcall(function() return loader and loader.open_log and loader.open_log(name) end)
+    if not (ok and f) then
+        local temp = os and os.getenv and os.getenv(&#x27;TEMP&#x27;)
+        f = temp and io.open(temp .. &#x27;\\&#x27; .. name, &#x27;w&#x27;)
+    end
+    if f then own_log, H.log = f, name end
+    return own_log
+end</code></pre></details></li><li><a class="loc" href="source-zh.html#fix-a33">plate_fix.lua 第 1 行</a>　<b>第二個資源名稱</b>：Dead Plate Fix 是另一個資源，在 Arsenal 裡是另一個選項，所以可以只裝它不裝 HUD。<details><summary>展開這段程式碼</summary><pre class="lua"><code>-- HD2-Addon: mods/hivelordhud/plate_fix</code></pre></details></li></ul></div>
   <div class="takeaway"><b>重點</b><ol>
     <li>Loader 用 patch 檔蓋掉一個「遊戲啟動一定會載入」的原版腳本，並保留它原本的功能。</li>
     <li>Loader 再掃描所有 patch 檔，用第一行 <code>-- HD2-Addon:</code> 找出模組，逐一 <code>require</code>。</li>
@@ -579,6 +650,200 @@ mods/cowboybingus/consistent_vaulting: not installed
       <li><b>v40</b>：<code>Unit.world_position(u, 0)</code> 對所有單位都回傳原點，距離永遠是 0 m。改用具名骨頭（head、root）。</li>
     </ul>
   </div>
+  <div class="srcbox"><b>在原始碼裡</b><ul><li><a class="loc" href="source-zh.html#hud-a2">hive_lord_hud.lua 第 16–21 行</a>　<b>用當機換來的生命週期規則</b>：包在 update 裡、第一次出錯就解除武裝、每次呼叫前確認 world 還活著、Gui 是保留模式、參數用真正的引擎物件。這五條各自對應第 4 章的一次當機。<details><summary>展開這段程式碼</summary><pre class="lua"><code>-- Lifecycle (same as HUD+, which is known to be stable):
+--   * runs inside a wrapper around the engine&#x27;s global `update` (main thread, once per frame) and disarms itself
+--     permanently on the first Lua fault
+--   * every engine call is gated on the world being live
+--   * Gui is retained-mode: Gui.rect once -&gt; id, then Gui.update_rect(id); World.destroy_gui on teardown
+--   * vectors / colours are real engine objects: Vector3(x, y, layer), Vector2(w, h), Color(a, r, g, b)</code></pre></details></li><li><a class="loc" href="source-zh.html#hud-a6">hive_lord_hud.lua 第 71–79 行</a>　<b>呼叫前先確認 world 還活著</b>：已經消失的 world 連同它的 Gui 一起失效。任何引擎呼叫之前都先查它還在不在清單裡。<details><summary>展開這段程式碼</summary><pre class="lua"><code>local function world_is_live(world)
+    if world == nil or not App then return false end
+    local worlds = attempt(App.worlds)
+    if type(worlds) ~= &#x27;table&#x27; then return false end
+    for i = 1, #worlds do
+        if worlds[i] == world then return true end
+    end
+    return false
+end</code></pre></details></li><li><a class="loc" href="source-zh.html#hud-a8">hive_lord_hud.lua 第 182–217 行</a>　<b>用引擎 API 找到 Hive Lord</b>：World.units 列出所有單位，先 Unit.alive 再 Unit.resource_name，用雜湊比對 Hive Lord；死掉的屍體用位址跳過，連 alive 都不再問。<details><summary>展開這段程式碼</summary><pre class="lua"><code>function H.find_hive_lord(worlds, t)
+    if not World or type(World.units) ~= &#x27;function&#x27; then return nil end
+    if H.dead_addr and t - (H.dead_addr_t or t) &gt; 300 then H.dead_addr = nil end
+    local total = 0
+    for _, rec in ipairs(settled_worlds(worlds, t)) do
+        local units = attempt(World.units, rec.w)
+        if type(units) == &#x27;table&#x27; then
+            rec.n = #units
+            total = total + #units
+            if not rec.logged then describe_world(rec, units) end
+            local hl, hl_name, divers, cams = nil, nil, {}, {}
+            for i = 1, #units do
+                local u = units[i]
+                -- The game crashed twice ~60 s after a Hive Lord died, while we kept polling its corpse as it was
+                -- despawned (logs 222058 / 233615). Once dead it is never touched again, not even Unit.alive.
+                if H.dead_addr and handle_addr(u) == H.dead_addr then
+                    -- skip
+                elseif attempt(Unit.alive, u) then
+                    local name = attempt(Unit.resource_name, u)
+                    if name ~= nil then
+                        local s = tostring(name):lower()
+                        if not hl and is_hive_lord(s) then hl, hl_name = u, tostring(name)
+                        elseif s:find(AVATAR_HEX, 1, true) then divers[#divers + 1] = u
+                        elseif s:find(CAMERA_HEX, 1, true) then cams[#cams + 1] = u end
+                    end
+                end
+            end
+            if hl then
+                H.live.units_seen, H.live.divers, H.live.cams = total, divers, cams
+                return hl, rec.w, hl_name
+-- …（共 36 行，完整內容見原始碼頁）</code></pre></details></li><li><a class="loc" href="source-zh.html#hud-a9">hive_lord_hud.lua 第 219–224 行</a>　<b>Unit.world_position 的坑</b>：節點 0 對所有單位都回傳原點，所以改用具名骨頭（root、head），而且先用 has_node 確認，因為未知名稱會觸發引擎 assert。<details><summary>展開這段程式碼</summary><pre class="lua"><code>-- Root node world position. Index 0 is the root (scene node indices are 0-based); guarded by node count.
+-- Vector3 fields are unreliable here, so parse tostring &#x27;Vector3(x, y, z)&#x27;.
+-- Node 0 is a static root that reads (0,0,0) for the Hive Lord and every avatar, so named bones are used instead,
+-- resolved once per unit (Unit.has_node first: Unit.node asserts on unknown names).
+local BODY_NODES = {&#x27;root&#x27;, &#x27;j_root&#x27;, &#x27;hips&#x27;, &#x27;j_hips&#x27;, &#x27;pelvis&#x27;, &#x27;j_pelvis&#x27;, &#x27;spine&#x27;, &#x27;j_spine&#x27;, &#x27;head&#x27;, &#x27;j_head&#x27;}
+local node_cache = setmetatable({}, {__mode = &#x27;k&#x27;})</code></pre></details></li><li><a class="loc" href="source-zh.html#hud-a23">hive_lord_hud.lua 第 991–1032 行</a>　<b>保留模式的圖元</b>：每個矩形、文字在建立時拿到一個編號，之後只修改；群組負責淡入淡出與銷毀。<details><summary>展開這段程式碼</summary><pre class="lua"><code>local function new_group(name)
+    local g = {name = name, a = 0, prims = {}, born = H.frame}
+    H.grp[name] = g
+    return g
+end
+
+-- Rect prim: c = {a, r, g, b}; w may change later (bars).
+local function add_rect(g, x, y, w, h, c, layer)
+    local p = {kind = &#x27;rect&#x27;, x = x, y = y, w = w, h = h, c = c, layer = layer or LAYER}
+    p.id = Gui.rect(H.ui.gui, Vector3(x, y, p.layer), Vector2(w, h), Color(0, c[2], c[3], c[4]))
+    g.prims[#g.prims + 1] = p
+    return p
+end
+
+-- Text prim, created with its real initial string (updates in the creation frame are dropped by the engine).
+-- align: &#x27;l&#x27; (x = left), &#x27;r&#x27; (x = right edge), &#x27;c&#x27; (x = centre).
+local function text_pos(p)
+    if p.align == &#x27;l&#x27; then return p.x end
+    local w = text_width(p.str, p.size)
+    if p.align == &#x27;r&#x27; then return p.x - w end
+    return p.x - w / 2
+end
+
+-- Bold: the debug font has no bold face, so a text is drawn bold_px(size) + 1 times, each copy 1 px further right (a
+-- solid thicker stroke; a single copy shifted by several px reads as a double image). Every copy sits on whole pixels
+-- at a whole-pixel size: at fractional positions each copy is resampled on its own and the stack smears.
+local function bold_px(size) return math.max(1, math.floor(size / 16 + 0.5)) end
+local function px(v) return math.floor(v + 0.5) end
+H.bold_px = bold_px
+
+-- …（共 42 行，完整內容見原始碼頁）</code></pre></details></li><li><a class="loc" href="source-zh.html#hud-a24">hive_lord_hud.lua 第 1059–1073 行</a>　<b>不用了就銷毀</b>：群組淡出完才把它的每個圖元從 Gui 移除。v0 就是因為從不銷毀而當機。<details><summary>展開這段程式碼</summary><pre class="lua"><code>local function destroy_group(name)
+    local g = H.grp[name]
+    if not g then return end
+    if H.ui.gui then
+        for _, p in ipairs(g.prims) do
+            if p.kind == &#x27;rect&#x27; then pcall(Gui.destroy_rect, H.ui.gui, p.id)
+            elseif p.kind == &#x27;tri&#x27; then tri_free(p)
+            else
+                pcall(Gui.destroy_text, H.ui.gui, p.id)
+                for _, id in ipairs(p.copies or {}) do pcall(Gui.destroy_text, H.ui.gui, id) end
+            end
+        end
+    end
+    H.grp[name] = nil
+end</code></pre></details></li><li><a class="loc" href="source-zh.html#hud-a25">hive_lord_hud.lua 第 1078–1088 行</a>　<b>色調映射的反向修正</b>：Gui 在遊戲的曝光與色調映射之前畫，顏色會亮約 3 倍。送出前先換算：送出值 = 想要的值 ÷ gain + black。<details><summary>展開這段程式碼</summary><pre class="lua"><code>-- Colour correction. The screen gui is drawn before the game&#x27;s exposure / tone mapping, so a colour comes out roughly
+-- 3x brighter with the darks crushed (a {96,2,18} strip showed as 243,0,0; greys of 150-240 as pure white). Colours
+-- are authored as they should look and mapped back here: sent = shown / gain + black. &#x27;Colour correction&#x27; slider:
+-- 100 = gain 3, black 18; 0 = off; 150 = stronger.
+function H.color_out(v)
+    local f = (tonumber(H.cfg and H.cfg.color_fix) or 100) / 100
+    if f &lt;= 0 then return math.floor(v + 0.5) end
+    local gain, black = 1 + 2 * f, 18 * f
+    return math.floor(math.min(255, v / gain + black) + 0.5)
+end
+local color_out = H.color_out</code></pre></details></li><li><a class="loc" href="source-zh.html#hud-a26">hive_lord_hud.lua 第 1090–1121 行</a>　<b>只送有變的</b>：每個圖元記住上次送出的顏色、位置、文字，沒有變就不呼叫 Gui，省下每幀的成本。<details><summary>展開這段程式碼</summary><pre class="lua"><code>local function draw(p, ga)
+    local a = math.floor(p.c[1] * ga + 0.5)
+    local k = ga &lt; 1 and (0.15 + 0.85 * ga) or 1
+    local r, gg, b = color_out(p.c[2] * k), color_out(p.c[3] * k), color_out(p.c[4] * k)
+    if p.kind == &#x27;rect&#x27; then
+        local w = ga &lt; 0.04 and 0 or p.w
+        local key = a * 16777216 + r * 65536 + gg * 256 + b + math.floor(w * 4) * 4294967296
+        local pk = math.floor(p.x) * 65536 + math.floor(p.y)
+        if key == p.key and pk == p.pk and p.h == p.lh then return end
+        p.key, p.pk, p.lh = key, pk, p.h
+        Gui.update_rect(H.ui.gui, p.id, Vector3(p.x, p.y, p.layer or LAYER), Vector2(w, p.h), Color(a, r, gg, b))
+    elseif p.kind == &#x27;tri&#x27; then
+        local key = a * 16777216 + r * 65536 + gg * 256 + b
+        if key == p.key then return end
+        p.key = key
+        tri_free(p)
+        tri_make(p, a, r, gg, b)
+        if H.tri_error and (p.fi or p.tick) then     -- a facet / bar stripe failed to re-create: rects from now on
+            H.poly_tri_off, H.tri_error, H.poly_rebuild = H.tri_error, nil, true
+        end
+    else
+        local str = ga &lt; 0.04 and &#x27; &#x27; or p.str
+        local key = string.format(&#x27;%d,%d,%d,%d|%d,%d|%s&#x27;, a, r, gg, b, math.floor(p.x), math.floor(p.y), str)
+        if key == p.key then return end
+        p.key = key
+        local tx, ty, col = px(text_pos(p)), px(p.y), Color(a, r, gg, b)
+        Gui.update_text(H.ui.gui, p.id, str, H.font, p.size, H.font_mat, Vector3(tx, ty, p.layer), col)
+        for k, id in ipairs(p.copies or {}) do
+            Gui.update_text(H.ui.gui, id, str, H.font, p.size, H.font_mat, Vector3(tx + k, ty, p.layer), col)
+        end
+-- …（共 32 行，完整內容見原始碼頁）</code></pre></details></li><li><a class="loc" href="source-zh.html#hud-a27">hive_lord_hud.lua 第 1738–1768 行</a>　<b>3D 位置投影到螢幕</b>：用 Camera.world_to_screen 把 Hive Lord 的位置換成螢幕座標。第一次呼叫前先寫一行 log：萬一當掉，最後一行就是元兇。<details><summary>展開這段程式碼</summary><pre class="lua"><code>function H.project(wx, wy, wz)
+    local Camera, Quat = api(&#x27;Camera&#x27;), api(&#x27;Quaternion&#x27;)
+    if not Camera or type(Camera.world_to_screen) ~= &#x27;function&#x27; then return nil end
+    local pc = frame_camera(Camera, Quat)
+    local c = pc.c
+    if c == nil then return nil end
+    if not H.tag_called then
+        H.tag_called = true
+        writer(&#x27;tag: calling Camera.world_to_screen for the first time (if the game crashes now, this API is bad)&#x27;)
+    end
+    local ok, v = pcall(Camera.world_to_screen, c, Vector3(wx, wy, wz))
+    if not ok or v == nil then
+        if not H.tag_err then H.tag_err = true; writer(&#x27;tag: Camera.world_to_screen failed: &#x27; .. tostring(v)) end
+        return nil
+    end
+    local sx, sy, sz = parse3(v)
+    if not (sx and sy) then return nil end
+    local behind = false
+    if pc.fx and pc.px then
+        behind = (wx - pc.px) * pc.fx + (wy - pc.py) * pc.fy + (wz - pc.pz) * pc.fz &lt; 0
+    end
+    if H.tag_scale == nil then
+        local rw = type(Gui.render_resolution) == &#x27;function&#x27; and attempt(Gui.render_resolution) or nil
+        H.tag_scale = (type(rw) == &#x27;number&#x27; and rw &gt; 0) and (H.ui.width / rw) or 1
+        writer(string.format(&#x27;tag: first projection raw=(%s) gui=%dx%d render_w=%s scale=%.3f&#x27;, tostring(v), H.ui.width,
+            H.ui.height, tostring(rw), H.tag_scale))
+    end
+    sx, sy = sx * H.tag_scale, sy * H.tag_scale
+    if H.tag_flip then sy = H.ui.height - sy end
+    return sx, sy, behind, sz
+-- …（共 31 行，完整內容見原始碼頁）</code></pre></details></li><li><a class="loc" href="source-zh.html#hud-a28">hive_lord_hud.lua 第 2198–2219 行</a>　<b>Gui 的建立與拆除</b>：在一個 world 上建立螢幕 Gui；拆除時只有 world 還活著才銷毀，已經消失的 world 只遺忘。<details><summary>展開這段程式碼</summary><pre class="lua"><code>local function build_gui(world)
+    local gui = World.create_screen_gui(world, &#x27;scale&#x27;, 1, 1)
+    if gui == nil then return false end
+    H.ui.gui, H.ui.world = gui, world
+    H.grp = {}
+    local w, h = Gui.resolution()
+    if type(w) == &#x27;number&#x27; and w &gt; 0 and type(h) == &#x27;number&#x27; and h &gt; 0 then
+        H.ui.width, H.ui.height = w, h
+        H.ui.scale = math.min(w / 1920, h / 1080)
+    end
+    writer(string.format(&#x27;overlay up (%dx%d, scale %.2f, text=%s)&#x27;, H.ui.width, H.ui.height,
+        H.ui.scale, tostring(H.text_ok)))
+    return true
+end
+
+-- Destroy only if the world is still alive; a dead world already took the gui with it.
+local function teardown()
+    if H.ui.gui ~= nil and world_is_live(H.ui.world) then
+        pcall(World.destroy_gui, H.ui.world, H.ui.gui)
+    end
+    H.ui.gui, H.ui.world, H.grp = nil, nil, {}
+end</code></pre></details></li><li><a class="loc" href="source-zh.html#hud-a29">hive_lord_hud.lua 第 2239–2249 行</a>　<b>畫在哪個 world 上</b>：挑單位最少、已經穩定 10 秒的 world（介面用的那個）。main_world 大約每 3 秒就換一次，不能拿來判斷。<details><summary>展開這段程式碼</summary><pre class="lua"><code>-- Overlay world: the settled world with the fewest units (the UI world; the game world has thousands).
+-- main_world flips ~every 3s, so it can&#x27;t be used to tell them apart. Once chosen, kept while it lives.
+local t_now = 0
+local function pick_overlay_world()
+    local best
+    for _, rec in ipairs(H.worlds_seen) do
+        if t_now - rec.since &gt;= 10 and rec.n ~= nil and (best == nil or rec.n &lt; best.n) then best = rec end
+    end
+    if best then writer(string.format(&#x27;overlay on world #%d (%d units)&#x27;, best.idx, best.n)) end
+    return best and best.w
+end</code></pre></details></li></ul></div>
   <div class="takeaway"><b>重點</b><ol>
     <li>引擎 API 讓模組能看場景、找物件、畫畫面，但沒開放的事（例如讀血量）就做不到。</li>
     <li>Lua 錯誤可以攔，引擎內部的錯誤會直接結束遊戲，所以要「呼叫前先確認」。</li>
@@ -622,6 +887,16 @@ print(tonumber(buf[0]))                                             -- 高精度
   </ul>
 
   <div class="hudlog"><b>Hive Lord HUD 此時</b>確定了「讀血量」只能走 FFI：用 <code>ReadProcessMemory</code> 讀遊戲記憶體。但問題馬上變成兩個：血量在記憶體的<b>哪裡</b>？那裡的資料<b>長什麼樣子</b>？要回答，得先懂記憶體（第 6 章）和遊戲怎麼組織資料（第 7 章）。</div>
+  <div class="srcbox"><b>在原始碼裡</b><ul><li><a class="loc" href="source-zh.html#hud-a10">hive_lord_hud.lua 第 506–515 行</a>　<b>FFI 宣告 Windows API</b>：告訴 FFI ReadProcessMemory、VirtualQuery 長什麼樣，包在 pcall 裡（別的模組可能先宣告過），再載入 kernel32。<details><summary>展開這段程式碼</summary><pre class="lua"><code>pcall(ffi.cdef, [[
+unsigned long long VirtualQuery(const void* addr, void* buf, unsigned long long len);
+void* GetCurrentProcess(void);
+int ReadProcessMemory(void* process, const void* addr, void* buf, size_t size, size_t* read);
+typedef struct {
+    void* BaseAddress; void* AllocationBase; unsigned long AllocationProtect; unsigned short PartitionId;
+    unsigned long long RegionSize; unsigned long State; unsigned long Protect; unsigned long Type;
+} HLH_MBI;
+]])
+local k32 = ffi.load(&#x27;kernel32&#x27;)</code></pre></details></li></ul></div>
   <div class="takeaway"><b>重點</b><ol>
     <li>FFI 讓 Lua 呼叫 Windows API、直接操作記憶體，是模組能做「引擎沒開放的事」的關鍵。</li>
     <li>它沒有安全網，錯了遊戲直接當掉。</li>
@@ -812,6 +1087,32 @@ print(tonumber(buf[0]))                                             -- 高精度
   </div>
 
   <div class="hudlog"><b>Hive Lord HUD 此時</b>知道了目標：Hive Lord 的血量是一個 int32，放在遊戲程序的堆積上某處，位置每場都不同。要穩定找到它，需要一個固定的起點（game.dll 資料區的某個全域變數，以 RVA 記住），再沿著指標找下去。但要知道「指標指到的那一大塊資料裡，哪 4 bytes 才是主血」，得懂遊戲怎麼組織資料（第 7 章）。</div>
+  <div class="srcbox"><b>在原始碼裡</b><ul><li><a class="loc" href="source-zh.html#hud-a16">hive_lord_hud.lua 第 601–618 行</a>　<b>基址 + RVA</b>：GetModuleHandleA 拿到這次 game.dll 的基址，加上 RVA 0x3326688 讀出健康系統的位址。基址每次啟動都不同，RVA 不變。<details><summary>展開這段程式碼</summary><pre class="lua"><code>function H.game_base()
+    if H.GAME_BASE then return H.GAME_BASE end                -- test harness
+    local ok, m = pcall(function() return tonumber(ffi.cast(&#x27;uintptr_t&#x27;, ffi.C.GetModuleHandleA(&#x27;game.dll&#x27;))) end)
+    if ok and m and m ~= 0 then return m end
+    return nil
+end
+
+local function health_sys()
+    local base = H.game_base()
+    if not base then return nil, &#x27;game.dll not found&#x27; end
+    local S = ptr(base + HEALTH_SYS_RVA)
+    if not S then return nil, &#x27;health system not created&#x27; end
+    local keys, cap, recs = ptr(S + HS_KEYS), u32(S + HS_CAP), ptr(S + HS_RECS)
+    if not (keys and cap and recs) or cap == 0 or cap &gt; 0x40000 then
+        return nil, string.format(&#x27;health system layout unexpected (cap=%s)&#x27;, tostring(cap))
+    end
+    return {S = S, keys = keys, cap = cap, recs = recs, empty = u32(S + HS_EMPTY)}
+end</code></pre></details></li><li><a class="loc" href="source-zh.html#fix-a40">plate_fix.lua 第 140–148 行</a>　<b>基址 + RVA，再驗證</b>：從 game.dll 基址加 RVA 讀出系統位址，並檢查 key 表與容量合不合理，不合理就什麼都不做。<details><summary>展開這段程式碼</summary><pre class="lua"><code>local function table_header(base_rva, keys_off, cap_off)
+    local base = M.game_base()
+    if not base then return nil end
+    local S = ptr(base + base_rva)
+    if not S then return nil end
+    local keys, cap = ptr(S + keys_off), u32(S + cap_off)
+    if not keys or not cap or cap == 0 or cap &gt; 0x40000 then return nil end
+    return S, keys, cap
+end</code></pre></details></li></ul></div>
   <div class="takeaway"><b>重點</b><ol>
     <li>數字在記憶體裡就是幾個 bytes，int32 是 4 bytes、低位在前。</li>
     <li>每個程序有自己的虛擬記憶體；外部程式要讀得經過 Windows，模組在裡面則不用。</li>
@@ -886,6 +1187,73 @@ records[6].main_hp -= 500;   // 第 6 隻扣 500 血</pre></div>
   </details>
 
   <div class="hudlog"><b>Hive Lord HUD 此時</b>知道了要讀的東西長什麼樣：健康系統陣列裡的一筆紀錄，每筆 440 bytes，主血在 +0x14，38 個部位的 HP 在 +0xF8，裝甲在 +0x5C，結尾有 0xFFFF 標記。但這些位移、跨距、健康系統的位置，都不是猜的，是 B 部分的工具查出來的。</div>
+  <div class="srcbox"><b>在原始碼裡</b><ul><li><a class="loc" href="source-zh.html#hud-a12">hive_lord_hud.lua 第 522–530 行</a>　<b>紀錄裡的位移</b>：主血、裝甲、結尾標記相對於部位陣列的位移，以及每個部位的最大值表。這就是第 7 章那張記憶體圖的程式版本。<details><summary>展開這段程式碼</summary><pre class="lua"><code>local OFF_MAIN, OFF_ARMOR0, OFF_MARKER = -0xE4, -0x98, 0x98
+local WIN_LO, WIN_HI = 0xF0, 0xA0  -- read [Z - 0xF0, Z + 0xA0)
+local WIN_LEN = WIN_LO + WIN_HI
+
+-- Per-slot max HP / constitution, built from H.GROUPS.
+local MAXHP, MAXCON = {}, {}
+for _, g in ipairs(H.GROUPS) do
+    for _, z in ipairs(g.zones) do MAXHP[z.slot], MAXCON[z.slot] = z.hp, z.con or g.con or 0 end
+end</code></pre></details></li><li><a class="loc" href="source-zh.html#hud-a14">hive_lord_hud.lua 第 546–567 行</a>　<b>指紋：39 個裝甲值</b>：每次讀紀錄都檢查結尾標記、39 個戰鬥中不會變的裝甲值、以及每個部位 HP 的範圍。任何一項不對就當作不是 Hive Lord。<details><summary>展開這段程式碼</summary><pre class="lua"><code>-- Read the record around zone base z into WIN and validate it. Returns true if it still looks like a Hive Lord.
+-- Armor never changes in a fight, so it is the fingerprint: default zone, then slots 0..37.
+local ARMOR = {5, 6, 10}
+for _ = 1, 13 do ARMOR[#ARMOR + 1] = 5 end
+for _ = 1, 7 do ARMOR[#ARMOR + 1] = 2 end
+ARMOR[#ARMOR + 1] = 6; ARMOR[#ARMOR + 1] = 6
+for _ = 1, 14 do ARMOR[#ARMOR + 1] = 5 end
+
+-- HP is only sanity-bounded: destroyed zones (even ones without constitution) go below zero.
+local function read_record(z)
+    if safe_read(z - WIN_LO, WIN_LEN, WIN) &lt; WIN_LEN then return false end
+    local zb = WIN_LO
+    if i32(WIN, zb + OFF_MARKER) ~= 0xFFFF then return false end
+    for i = 1, #ARMOR do
+        if i32(WIN, zb + OFF_ARMOR0 - 4 + (i - 1) * 4) ~= ARMOR[i] then return false end
+    end
+    for slot = 0, 37 do
+        local v = i32(WIN, zb + slot * 4)
+        if v &gt; MAXHP[slot] or v &lt; -(MAXCON[slot] + MAXHP[slot]) then return false end
+    end
+    return true
+end</code></pre></details></li><li><a class="loc" href="source-zh.html#hud-a17">hive_lord_hud.lua 第 621–634 行</a>　<b>走過雜湊表</b>：把 key 表整個讀一遍，找出每個 (實體, 第幾筆)。不算雜湊，所以不必知道遊戲用的乘數。<details><summary>展開這段程式碼</summary><pre class="lua"><code>local function each_key(hs, fn)
+    local per = 0x10000 / 8
+    for first = 0, hs.cap - 1, per do
+        local n = math.min(per, hs.cap - first)
+        if safe_read(hs.keys + first * 8, n * 8, B8) &lt; n * 8 then return false end
+        local p, list = ffi.cast(&#x27;uint32_t*&#x27;, B8), {}
+        for i = 0, n - 1 do
+            local k, v = tonumber(p[i * 2]), tonumber(p[i * 2 + 1])
+            if k ~= hs.empty and k ~= 0 and v &lt; 0x100000 then list[#list + 1] = {k, v} end
+        end
+        for _, kv in ipairs(list) do if fn(kv[1], kv[2]) then return true end end
+    end
+    return true
+end</code></pre></details></li><li><a class="loc" href="source-zh.html#fix-a39">plate_fix.lua 第 126–137 行</a>　<b>同一組指紋，加上板子到遮罩的對照</b>：跟 HUD 用同一組 39 個裝甲值認出 Hive Lord；另外列出每塊板子對應的模型遮罩編號，以及等待時間與重試次數。<details><summary>展開這段程式碼</summary><pre class="lua"><code>-- The Hive Lord&#x27;s armour values (default zone, then zones 0..37) never change in a fight: our fingerprint.
+local ARMOR = {5, 6, 10}
+for _ = 1, 13 do ARMOR[#ARMOR + 1] = 5 end
+for _ = 1, 7 do ARMOR[#ARMOR + 1] = 2 end
+ARMOR[#ARMOR + 1] = 6; ARMOR[#ARMOR + 1] = 6
+for _ = 1, 14 do ARMOR[#ARMOR + 1] = 5 end
+
+-- Plate zone -&gt; its model mask (GoreComponent) ; constitution 35000 for every plate.
+local PLATE_MASK = {}
+for k = 0, 5 do PLATE_MASK[7 - k], PLATE_MASK[14 - k] = 1 + 4 * k, 2 + 4 * k end
+local PLATE_CON = 35000
+local FIX_DELAY, FIX_TRIES, RETRY_S = 1.5, 3, 2</code></pre></details></li><li><a class="loc" href="source-zh.html#fix-a41">plate_fix.lua 第 151–164 行</a>　<b>同樣的雜湊表走法</b>：分段讀出 key 表，略過空格，對每個 (實體, 第幾筆) 呼叫 fn。<details><summary>展開這段程式碼</summary><pre class="lua"><code>local function each_key(keys, cap, fn)
+    local per = 0x10000 / 8
+    for first = 0, cap - 1, per do
+        local n = math.min(per, cap - first)
+        if safe_read(keys + first * 8, n * 8, BUF) &lt; n * 8 then return false end
+        local p, list = ffi.cast(&#x27;uint32_t*&#x27;, BUF), {}
+        for i = 0, n - 1 do
+            local k, v = tonumber(p[i * 2]), tonumber(p[i * 2 + 1])
+            if k ~= 0xFFFFFFFF and k ~= 0 and v &lt; 0x100000 then list[#list + 1] = {k, v} end
+        end
+        for _, kv in ipairs(list) do if fn(kv[1], kv[2]) then return true end end
+    end
+    return true
+end</code></pre></details></li></ul></div>
   <div class="takeaway"><b>重點</b><ol>
     <li>編譯後只剩位移：「紀錄 +0x14 是主血」就是全部的資訊。</li>
     <li>遊戲用系統集中管理同一種資料，用雜湊表從實體編號查到第幾筆。</li>
@@ -950,6 +1318,27 @@ records[6].main_hp -= 500;   // 第 6 隻扣 500 血</pre></div>
       <li>解出動畫狀態機，後來的出土警告就靠它的狀態名稱。</li>
     </ul>
     但 FileDiver 只能回答「遊戲定義了什麼」，回答不了「現在這隻 Hive Lord 的紀錄在記憶體哪裡」。</div>
+  <div class="srcbox"><b>在原始碼裡</b><ul><li><a class="loc" href="source-zh.html#hud-a7">hive_lord_hud.lua 第 86–106 行</a>　<b>FileDiver 解出來的設計數值</b>：38 個部位的最大 HP 和構造值，全部來自離線解出的血量元件。這些數字之後被拿來驗證記憶體裡的紀錄。<details><summary>展開這段程式碼</summary><pre class="lua"><code>-- =========================================================================
+-- Hive Lord data (tools/research/hive_lord_health.json)
+-- =========================================================================
+H.MAIN_HEALTH_MAX = 150000
+H.GROUPS = {
+    {label = &#x27;HEAD&#x27;,  color = {255, 230, 140, 40},  zones = {
+        {slot = 0, hp = 150000}, {slot = 1, hp = 150000}, {slot = 22, hp = 10000}, {slot = 23, hp = 10000}}},
+    {label = &#x27;SPINE&#x27;, con = 35000, color = {255, 230, 200, 60},  zones = {
+        {slot = 2, hp = 15000}, {slot = 3, hp = 15000}, {slot = 4, hp = 15000}, {slot = 5, hp = 15000},
+        {slot = 6, hp = 15000}, {slot = 7, hp = 15000}, {slot = 8, hp = 20000}, {slot = 9, hp = 15000},
+        {slot = 10, hp = 15000}, {slot = 11, hp = 15000}, {slot = 12, hp = 15000}, {slot = 13, hp = 15000},
+        {slot = 14, hp = 15000}}},
+    {label = &#x27;BODY&#x27;,  color = {255, 220, 70, 60},   zones = {
+        {slot = 15, hp = 150000}, {slot = 16, hp = 150000}, {slot = 17, hp = 150000}, {slot = 18, hp = 150000},
+        {slot = 19, hp = 150000}, {slot = 20, hp = 150000}, {slot = 21, hp = 150000}}},
+    {label = &#x27;FINS&#x27;,  color = {255, 120, 170, 210}, zones = {
+        {slot = 24, hp = 5000}, {slot = 25, hp = 5000}, {slot = 26, hp = 5000}, {slot = 27, hp = 5000},
+        {slot = 28, hp = 5000}, {slot = 29, hp = 5000}, {slot = 30, hp = 5000}, {slot = 31, hp = 5000},
+        {slot = 32, hp = 5000}, {slot = 33, hp = 5000}, {slot = 34, hp = 5000}, {slot = 35, hp = 5000},
+        {slot = 36, hp = 5000}, {slot = 37, hp = 5000}}},
+}</code></pre></details></li></ul></div>
   <div class="takeaway"><b>重點</b><ol>
     <li>封存檔有固定格式，名稱是雜湊，靠社群的名稱清單翻回來。</li>
     <li>設計數值和結構定義可以離線拿到，型別庫比工具內建的結構更可靠。</li>
@@ -1019,6 +1408,16 @@ records[6].main_hp -= 500;   // 第 6 隻扣 500 血</pre></div>
       <li><b>v9 失敗、v10 修正</b>：用「主血 = 150000」當錨點，Hive Lord 一受傷就找不到；改用不會變的裝甲值當指紋。</li>
     </ul>
     這個「搜尋堆積」的方法能用，但有一個藏得很深的問題（第 11 章）。</div>
+  <div class="srcbox"><b>在原始碼裡</b><ul><li><a class="loc" href="source-zh.html#hud-a5">hive_lord_hud.lua 第 51–60 行</a>　<b>曾經跟 Recon 打包在一起的痕跡</b>：如果偵察模組 Recon 也在，log 會寫進它的檔案。前 69 個版本的 HUD 就是跟 Recon 打包在一起的。<details><summary>展開這段程式碼</summary><pre class="lua"><code>local function writer(line)
+    local R = recon()
+    H.recent[#H.recent + 1] = line
+    if #H.recent &gt; 3 then table.remove(H.recent, 1) end
+    line = &#x27;[HiveLordHud] &#x27; .. line
+    if R and R.write then R.write(line) return end
+    print(line)
+    local f = open_own_log()
+    if f then pcall(function() f:write(line, &#x27;\n&#x27;); f:flush() end) end
+end</code></pre></details></li></ul></div>
   <div class="takeaway"><b>重點</b><ol>
     <li>在反作弊下觀察遊戲的辦法，是把觀察工具做成模組，在遊戲裡面讀。</li>
     <li>用指令檔遙控要查什麼，結果寫 log，每次重開遊戲跑一輪。</li>
@@ -1196,6 +1595,50 @@ apply_damage(g_health_system, entity, /* ... */);</pre></div>
   </svg>
   </div>
   <div class="hudlog"><b>Hive Lord HUD 此時</b>（10/05，v83）：靜態分析找到所有血量函式都從同一個全域變數 <code>game.dll + 0x3326688</code> 載入健康系統（整個 game.dll 有 587 處程式碼讀它）。HUD 從此不再搜尋堆積，而是走「基址 + RVA → 健康系統 → 雜湊表 → 第幾筆 → +0x14」這條固定的路。這一改也順便修好了第 11 章那個問題。</div>
+  <div class="srcbox"><b>在原始碼裡</b><ul><li><a class="loc" href="source-zh.html#hud-a15">hive_lord_hud.lua 第 578–599 行</a>　<b>逆向工程找到的健康系統</b>：這段註解記錄了第 10 章的成果：傷害函式 0x9235F0 怎麼查表、全域變數的 RVA、key 表與紀錄陣列的位移，以及為什麼搜尋堆積會跟上凍結的舊副本。<details><summary>展開這段程式碼</summary><pre class="lua"><code>-- =========================================================================
+-- The live HP record straight from the game&#x27;s health system (a game.dll global; RVA of build 25480438).
+-- The damage code (game.dll 0x9235F0) indexes it the same way: hash of (entity u32, index u32) at +0x1030,
+-- capacity at +0x1038, empty key at +0x103C, runtime records at +0x1058, 0x1B8 bytes each; zone HP at +0xF8
+-- (our Z), main HP at +0x14. The game reallocates that array and the old copies stay readable and still pass
+-- our fingerprint, so a heap scan can end up following a frozen copy. Going through the global always lands on the
+-- live one; the heap scan is only the fallback when the global cannot be read (e.g. after a game update).
+-- =========================================================================
+do
+local HEALTH_SYS_RVA, HS_KEYS, HS_CAP, HS_EMPTY, HS_RECS = 0x3326688, 0x1030, 0x1038, 0x103C, 0x1058
+local REC_STRIDE, REC_Z = 0x1B8, 0xF8
+local B8 = ffi.new(&#x27;uint8_t[?]&#x27;, 0x10000)
+local function u32(addr)
+    if safe_read(addr, 4, B8) &lt; 4 then return nil end
+    return tonumber(ffi.cast(&#x27;uint32_t*&#x27;, B8)[0])
+end
+local function ptr(addr)
+    if not addr or safe_read(addr, 8, B8) &lt; 8 then return nil end
+    local p = tonumber(ffi.cast(&#x27;uint64_t*&#x27;, B8)[0])
+    if p &lt; 0x10000 or p &gt; USER_END then return nil end
+    return p
+end</code></pre></details></li><li><a class="loc" href="source-zh.html#fix-a34">plate_fix.lua 第 4–14 行</a>　<b>逆向工程找到的 bug 原因</b>：區域狀態（碰撞）一定會同步，但隱藏模型的 gore 只在算出致命一擊的那台機器上執行。註解裡的位址都是第 10 章的方法找到的。<details><summary>展開這段程式碼</summary><pre class="lua"><code>-- A Hive Lord plate that is destroyed (zone HP -35000) always loses its collider and its crack overlay: that is zone
+-- state, synced to everyone (game.dll 0x925F10). The plate model itself is only hidden by gore (0x9057D0 -&gt; 0x903C70),
+-- which runs only on the machine that resolves the killing hit, and only if that hit passes gore&#x27;s checks. When
+-- gore never comes (seen on a client when a teammate&#x27;s Eagle killed the plate), the plate stays drawn - looking
+-- intact again - while shots pass through it to the flesh behind.
+--
+-- This module watches every Hive Lord through the game&#x27;s own tables and, when a plate has been dead for
+-- FIX_DELAY seconds and is still drawn, writes the same &quot;hidden&quot; override bit that gore would have written. The
+-- game then updates the drawn mask itself. It only changes what this player sees: no damage, collision, network
+-- or code is touched. Every read/write goes through Read/WriteProcessMemory, so a stale address fails instead of
+-- crashing. RE notes: tools/research/hive_lord_armor_break.md. Globals are RVAs of build 25480438.</code></pre></details></li><li><a class="loc" href="source-zh.html#fix-a38">plate_fix.lua 第 112–124 行</a>　<b>從組合語言讀出的表格布局</b>：健康系統與可見性遮罩系統的全域變數、key 表、entry 布局，全是從 game.dll 的組合語言讀出來的。<details><summary>展開這段程式碼</summary><pre class="lua"><code>-- ---------- game tables ----------
+-- Health system (game.dll+0x3326688): keys (entity u32, index u32) @+0x1030, capacity @+0x1038, empty key @+0x103C,
+--   records @+0x1058, 0x1B8 bytes each: zone HP i32[38] @+0xF8, armor i32[39] @+0x5C, 0xFFFF marker @+0x190.
+-- Visibility-mask system (game.dll+0x3326708): keys @+0x18, capacity @+0x20, entries @+0x38 (24 bytes: applied
+--   mask @+0, override bits @+8, touched bits @+16), base masks @+0x40 (8 bytes each).
+-- The setters (0x721D20 &amp; co.) push to the material at once only while the unit&#x27;s render record is live
+-- ([rec+0x14] bit 0); then they write the base mask. Otherwise they only write override/touched, and the updater
+-- 0x721680 later pushes (base &amp; ~touched) | (override &amp; touched) and keeps that in the entry&#x27;s applied mask.
+-- So &quot;drawn&quot; must not be judged by the base mask alone (the non-live path never changes it): a plate counts as
+-- hidden when either the base or the applied mask has its bit. Every try logs all four masks.
+local HEALTH_RVA, VIS_RVA = 0x3326688, 0x3326708
+local REC_STRIDE = 0x1B8
+local Z_OFF, ARMOR_OFF, MARKER_OFF = 0xF8, 0x5C, 0x190</code></pre></details></li></ul></div>
   <div class="takeaway"><b>重點</b><ol>
     <li>加殼的程式要從記憶體 dump 出解開的版本才能分析。</li>
     <li>組合語言裡的 <code>[暫存器 + 位移]</code> 就是結構欄位，<code>[rip + X]</code> 就是全域變數。</li>
@@ -1229,6 +1672,147 @@ apply_damage(g_health_system, entity, /* ... */);</pre></div>
   <h3>時間預算</h3>
   <p>搜尋堆積要讀好幾 GB 的記憶體，一次做完會讓那一幀卡住好幾秒。所以要切成小塊，每幀只做一點。HUD 一開始每幀花 8 ms，在 130 FPS 時讓 FPS 掉了一半，後來降到 4 ms。改成直接走全域變數之後，平常每幀的成本只剩零點幾毫秒。</p>
   <div class="hudlog"><b>Hive Lord HUD 此時</b>（10/05）：玩家回報「板子已經炸了，面板還顯示 20 幾 %」。查 log 發現，HUD 的堆積搜尋在某次重新搜尋時採用了一份<b>舊副本</b>，之後 130 秒數值都沒變。這就是 v83 改成從全域變數出發（第 10 章）的直接原因。改完之後一整場戰鬥只需要找一次，再也沒有凍結。</div>
+  <div class="srcbox"><b>在原始碼裡</b><ul><li><a class="loc" href="source-zh.html#hud-a11">hive_lord_hud.lua 第 520 行</a>　<b>時間預算</b>：堆積搜尋每幀最多 4 ms。原本是 8 ms，在 130 FPS 時讓 FPS 掉了一半。<details><summary>展開這段程式碼</summary><pre class="lua"><code>local SLICE_S, CHUNK = 0.004, 1024 * 1024   -- 4 ms per frame (was 8: halved the FPS while it ran at ~130 FPS)</code></pre></details></li><li><a class="loc" href="source-zh.html#hud-a13">hive_lord_hud.lua 第 532–542 行</a>　<b>所有讀取都經過 ReadProcessMemory</b>：註解寫得很清楚：堆積記憶體可能在檢查和讀取之間被釋放，直接讀會當掉；ReadProcessMemory 只會回傳失敗。<details><summary>展開這段程式碼</summary><pre class="lua"><code>-- All reads go through ReadProcessMemory on our own process: heap memory can be freed by another
+-- thread between a VirtualQuery check and a raw pointer read (that segfaulted in testing); RPM just fails.
+local SELF = k32.GetCurrentProcess()
+local NREAD = ffi.new(&#x27;size_t[1]&#x27;)
+local SCRATCH = ffi.new(&#x27;uint8_t[?]&#x27;, CHUNK)
+local WIN = ffi.new(&#x27;uint8_t[?]&#x27;, WIN_LEN)
+
+local function safe_read(addr, n, dst)
+    if k32.ReadProcessMemory(SELF, ffi.cast(&#x27;const void*&#x27;, addr), dst, n, NREAD) == 0 then return 0 end
+    return tonumber(NREAD[0])
+end</code></pre></details></li><li><a class="loc" href="source-zh.html#hud-a18">hive_lord_hud.lua 第 663–689 行</a>　<b>找不到時的退路</b>：先走健康系統這條固定的路；全域變數讀不到（例如遊戲更新後）才退回比較慢的堆積搜尋，並在 log 寫下原因。<details><summary>展開這段程式碼</summary><pre class="lua"><code>function H.locator_start()
+    local list, why = H.direct_find()
+    if list then
+        H.loc = {phase = &#x27;done&#x27;, direct = true, cands = {}, adopted = nil, t0 = now_s(), scanned = 0, anchors = 0, last_poll = -1e9}
+        local ids = {}
+        for _, c in ipairs(list) do
+            H.loc.cands[#H.loc.cands + 1] = {z = c.z, ent = c.ent, idx = c.idx, changed = -1e9}
+            ids[#ids + 1] = string.format(&#x27;entity 0x%X index %d&#x27;, c.ent, c.idx)
+        end
+        if list[1] then
+            writer(&#x27;HP record found via the health system: &#x27; .. table.concat(ids, &#x27;, &#x27;))
+            H.direct_waiting = nil
+        else
+            H.loc.retry_at = now_s() + 3
+            if not H.direct_waiting then writer(&#x27;health system readable, no Hive Lord record yet - retrying every 3s&#x27;) end
+            H.direct_waiting = true
+        end
+        return
+    end
+    if not H.direct_fail_logged then
+        writer(&#x27;direct HP lookup unavailable (&#x27; .. tostring(why) .. &#x27;) - using the heap scan&#x27;)
+        H.direct_fail_logged = true
+    end
+    H.loc = {phase = &#x27;scan&#x27;, addr = 0x10000, rbase = nil, rend = nil, off = 0,
+             scanned = 0, anchors = 0, cands = {}, adopted = nil, t0 = now_s()}
+    writer(&#x27;heap scan started (time-sliced, ~4ms/frame)&#x27;)
+end</code></pre></details></li><li><a class="loc" href="source-zh.html#hud-a19">hive_lord_hud.lua 第 692–706 行</a>　<b>不要找到自己的副本</b>：模組自己的緩衝區裡也有剛讀出來的紀錄副本，搜尋時一定要排除，否則會找到自己。<details><summary>展開這段程式碼</summary><pre class="lua"><code>local OWN = {
+    {tonumber(ffi.cast(&#x27;uintptr_t&#x27;, SCRATCH)), CHUNK},
+    {tonumber(ffi.cast(&#x27;uintptr_t&#x27;, WIN)), WIN_LEN},
+}
+
+local function test_anchor(L, hit)
+    for _, r in ipairs(OWN) do
+        if hit &gt;= r[1] - WIN_LEN and hit &lt; r[1] + r[2] then return end
+    end
+    L.anchors = L.anchors + 1
+    if #L.cands &lt; 8 and read_record(hit) then
+        for _, c in ipairs(L.cands) do if c.z == hit then return end end
+        L.cands[#L.cands + 1] = {z = hit, sig = signature(), changed = -1e9}
+    end
+end</code></pre></details></li><li><a class="loc" href="source-zh.html#hud-a20">hive_lord_hud.lua 第 710–745 行</a>　<b>分時搜尋</b>：每幀只搜尋一小塊，時間一到就停，下一幀接著做。<details><summary>展開這段程式碼</summary><pre class="lua"><code>local function scan_step(L)
+    local t_end = clock() + SLICE_S
+    while clock() &lt; t_end do
+        if L.rbase == nil then
+            if L.addr &gt;= USER_END or k32.VirtualQuery(ffi.cast(&#x27;const void*&#x27;, L.addr), mbi, MBI_SIZE) == 0 then
+                return true
+            end
+            local m = mbi[0]
+            local rb, rs = tonumber(ffi.cast(&#x27;uintptr_t&#x27;, m.BaseAddress)), tonumber(m.RegionSize)
+            if rb + rs &lt;= L.addr then return true end
+            L.addr = rb + rs
+            if m.State == MEM_COMMIT and m.Type == MEM_PRIVATE and m.Protect == PAGE_READWRITE then
+                L.rbase, L.rend, L.off = rb, rb + rs, 0
+            end
+        else
+            local take = math.min(CHUNK, L.rend - L.rbase - L.off)
+            local cbase = L.rbase + L.off
+            local got = safe_read(cbase, take, SCRATCH)
+            -- Compare aligned int32s in place: building a Lua string would leave stale copies of the
+            -- record in the heap for later scans to find.
+            local ok = got == take
+            if ok then
+                local words = ffi.cast(&#x27;const int32_t*&#x27;, SCRATCH)
+                for i = 0, got / 4 - 1 do
+                    if words[i] == 6 and words[i + 1] == 10 and i + 1 &lt; got / 4 then
+                        test_anchor(L, cbase + i * 4 - OFF_ARMOR0)
+                    end
+                end
+            end
+            L.off = L.off + take
+-- …（共 36 行，完整內容見原始碼頁）</code></pre></details></li><li><a class="loc" href="source-zh.html#hud-a21">hive_lord_hud.lua 第 775–878 行</a>　<b>每秒重新驗證</b>：每秒用實體編號重新找一次紀錄並驗證；紀錄搬走或被釋放就重新搜尋，而不是改跟另一筆閒置的紀錄。<details><summary>展開這段程式碼</summary><pre class="lua"><code>function H.read_hp()
+    local hp = {main = nil, zones = {}}
+    local L = H.loc
+    if not L then return hp end
+    if L.phase == &#x27;done&#x27; and not L.adopted and L.retry_at and now_s() &gt;= L.retry_at then
+        H.locator_start()
+        return hp
+    end
+    if L.phase ~= &#x27;done&#x27; or not L.cands[1] then return hp end
+    local t = now_s()
+    if t - L.last_poll &gt;= 1 then
+        L.last_poll = t
+        local keep = {}
+        for _, c in ipairs(L.cands) do
+            if L.direct then c.z = H.direct_z(c, true) end
+            if c.z and read_record(c.z) then
+                local sig = signature()
+                if sig ~= c.sig then c.sig, c.changed = sig, t end
+                keep[#keep + 1] = c
+            end
+        end
+        L.cands = keep
+        if not keep[1] then
+            writer(&#x27;HP records moved or freed - rescanning&#x27;)
+            H.locator_start()
+            return hp
+        end
+        -- The Hive Lord being fought is the record whose HP changed most recently.
+        local still_valid = false
+        for _, c in ipairs(keep) do if c == L.adopted then still_valid = true end end
+-- …（共 104 行，完整內容見原始碼頁）</code></pre></details></li><li><a class="loc" href="source-zh.html#fix-a35">plate_fix.lua 第 51–87 行</a>　<b>同樣只用 ReadProcessMemory</b>：「永遠不直接解參考指標：遊戲會釋放、搬移這些表。」跟 HUD 用一樣的安全讀取。<details><summary>展開這段程式碼</summary><pre class="lua"><code>-- ---------- memory access (never dereference raw pointers: the game frees and moves these tables) ----------
+pcall(ffi.cdef, &#x27;void* GetModuleHandleA(const char* name);&#x27;)
+pcall(ffi.cdef, &#x27;void* GetCurrentProcess(void);&#x27;)
+pcall(ffi.cdef, &#x27;int ReadProcessMemory(void* process, const void* addr, void* buf, size_t size, size_t* read);&#x27;)
+pcall(ffi.cdef, &#x27;int WriteProcessMemory(void* process, void* addr, const void* buf, size_t size, size_t* written);&#x27;)
+pcall(ffi.cdef, &#x27;int QueryPerformanceCounter(int64_t* c); int QueryPerformanceFrequency(int64_t* f);&#x27;)
+local k32 = ffi.load(&#x27;kernel32&#x27;)
+local SELF = k32.GetCurrentProcess()
+local NIO = ffi.new(&#x27;size_t[1]&#x27;)
+local BUF = ffi.new(&#x27;uint8_t[?]&#x27;, 0x10000)
+local REC = ffi.new(&#x27;uint8_t[?]&#x27;, 0x1B8)
+local WB = ffi.new(&#x27;uint8_t[1]&#x27;)
+local USER_END = 0x7FFFFFFFFFFF
+
+local function safe_read(addr, n, dst)
+    if k32.ReadProcessMemory(SELF, ffi.cast(&#x27;const void*&#x27;, addr), dst, n, NIO) == 0 then return 0 end
+    return tonumber(NIO[0])
+end
+local function u32(addr)
+    if safe_read(addr, 4, BUF) &lt; 4 then return nil end
+    return tonumber(ffi.cast(&#x27;uint32_t*&#x27;, BUF)[0])
+end
+local function ptr(addr)
+    if not addr or safe_read(addr, 8, BUF) &lt; 8 then return nil end
+    local p = tonumber(ffi.cast(&#x27;uint64_t*&#x27;, BUF)[0])
+    if p &lt; 0x10000 or p &gt; USER_END then return nil end
+    return p
+end
+local function mask(addr)
+    if safe_read(addr, 8, BUF) &lt; 8 then return nil end
+-- …（共 37 行，完整內容見原始碼頁）</code></pre></details></li></ul></div>
   <div class="takeaway"><b>重點</b><ol>
     <li>給玩家用的模組一律用 ReadProcessMemory：位址錯了只失敗、不當掉。</li>
     <li>釋放的記憶體還讀得到，搜尋可能找到凍結的舊副本；從遊戲自己的指標出發才可靠。</li>
@@ -1277,6 +1861,94 @@ apply_damage(g_health_system, entity, /* ... */);</pre></div>
   <h3>跟別的模組合作：設定選單</h3>
   <p>Mod Options Menu 也是一個透過 Loader 載入的模組，它在全域放了一個 <code>ModOptionsMenu</code> 表，其他模組可以呼叫 <code>register_option</code> 註冊設定、用 <code>get</code> 讀值。<b>因為</b>模組之間的載入順序不保證，<b>所以</b> HUD 不在載入時找它，而是在 update 裡才找，找到了才註冊。沒有裝它，HUD 就用設定檔裡的值。</p>
   <div class="hudlog"><b>Hive Lord HUD 此時</b>（10/04，v72–v78）把所有設定搬進 Mod Options Menu，拿掉所有快捷鍵。過程中學到：選單的修改要按遊戲的「套用」才生效，按 Esc 會丟掉，所以「預覽」改成按鈕式：套用後顯示 15 秒，再自己把選項切回關。（10/07，v116）功能凍結後做了一次大整理：3,568 行減到約 2,600 行，研究用的診斷移到另一個開發用模組。</div>
+  <div class="srcbox"><b>在原始碼裡</b><ul><li><a class="loc" href="source-zh.html#hud-a1">hive_lord_hud.lua 第 6–14 行</a>　<b>段落索引</b>：整個檔案的段落順序，剛好就是第 12 章那張表：資料、偵測、讀血量、區域追蹤、畫面、每幀流程、設定、安裝。<details><summary>展開這段程式碼</summary><pre class="lua"><code>-- Sections (in file order):
+--   Hive Lord data      zone layout, max HP / constitution per zone (from the unpacked HealthComponent)
+--   Detection           finding the Hive Lord unit, its distance, surfacing and the emerge / pre-emerge states
+--   Live HP locator     the HP record via the game&#x27;s health system (heap scan only as a fallback)
+--   Zone tracking       per-frame zone bookkeeping; host state events and the &#x27;&lt;&#x27; upper-bound marker
+--   GUI                 prims and groups: status text, armour panel (poly / pixel), tag, warning, preview, boss bar
+--   Per-frame worker    world selection, gui lifetime, render()
+--   Settings            cfg file and the Bingus Mod Options Menu rows
+--   Install             the wrapper around the engine&#x27;s global update()</code></pre></details></li><li><a class="loc" href="source-zh.html#hud-a3">hive_lord_hud.lua 第 24–26 行</a>　<b>單例守衛</b>：已經載入過就直接結束，同一個全域表也是整個 HUD 的狀態容器。<details><summary>展開這段程式碼</summary><pre class="lua"><code>if rawget(_G, &#x27;HD2HiveLordHud&#x27;) then return end
+local H = {version = 121, release = &#x27;v3&#x27;, armed = false, faults = 0, frame = 0}
+rawset(_G, &#x27;HD2HiveLordHud&#x27;, H)</code></pre></details></li><li><a class="loc" href="source-zh.html#hud-a30">hive_lord_hud.lua 第 2251–2331 行</a>　<b>每幀的主流程</b>：每 2 秒找一次單位、每幀讀血量、處理死亡與屍體、更新距離與動畫狀態、最後畫出畫面，順便量自己的更新率。<details><summary>展開這段程式碼</summary><pre class="lua"><code>function H.update()
+    H.frame = (H.frame or 0) + 1
+    -- Lua update rate (the overlay can only move this often), logged every 30 s while a Hive Lord is tracked.
+    local tr = now_s()
+    H.rate_t0 = H.rate_t0 or tr
+    H.rate_n = (H.rate_n or 0) + 1
+    if tr - H.rate_t0 &gt;= 30 then
+        local c = H.cost
+        if H.live.unit and c then
+            local normal_n = c.n - c.scan_n
+            writer(string.format(&#x27;update rate: %.0f Hz | HUD cost: avg %.3f ms, max %.2f ms per frame%s&#x27;, H.rate_n / (tr - H.rate_t0),
+                normal_n &gt; 0 and (c.sum - c.scan_sum) / normal_n or 0, c.max,
+                c.scan_n &gt; 0 and string.format(&#x27; | during HP search: %d frames, avg %.2f ms&#x27;, c.scan_n, c.scan_sum / c.scan_n) or &#x27;&#x27;))
+        end
+        if c then c.sum, c.max, c.n, c.scan_sum, c.scan_n = 0, 0, 0, 0, 0 end
+        H.rate_t0, H.rate_n = tr, 0
+    end
+    local L, t = H.live, now_s()
+    t_now = t
+    -- A dead world already took its gui with it: forget, never destroy.
+    if H.ui.gui ~= nil and not world_is_live(H.ui.world) then
+        H.ui.gui, H.ui.world, H.grp = nil, nil, {}
+    end
+
+    if t - L.last_scan &gt;= 2 then
+        L.last_scan = t
+        local worlds = attempt(App.worlds)
+        if type(worlds) ~= &#x27;table&#x27; then return end
+        local u, _, uname = H.find_hive_lord(worlds, t)
+        local a = u and (unit_addr(u) or u)
+-- …（共 81 行，完整內容見原始碼頁）</code></pre></details></li><li><a class="loc" href="source-zh.html#hud-a31">hive_lord_hud.lua 第 2510–2559 行</a>　<b>跟另一個模組合作：設定選單</b>：Mod Options Menu 是另一個模組提供的全域 API。HUD 在 update 裡才去找它（載入順序不保證），找到才註冊選項，每 10 幀讀一次值。<details><summary>展開這段程式碼</summary><pre class="lua"><code>function H.options_register(M)
+    local function reg(id, spec)
+        local ok, done, why = pcall(M.register_option, id, spec)
+        if not (ok and done) then writer(&#x27;mod options: register &#x27; .. id .. &#x27; failed: &#x27; .. tostring(ok and why or done)) end
+        return ok and done
+    end
+    H.option_ok = reg(OPTION_ID, {
+        type = &#x27;toggle&#x27;, mod = &#x27;Hive Lord HUD&#x27;, label = &#x27;Enable Hive Lord HUD&#x27;, default = true,
+        description = &#x27;Turns the whole Hive Lord HUD on or off: HP bar, armor panel, tag, distance and &#x27;
+            .. &#x27;emerge warning. Off stops all of its work.&#x27;})
+    if not H.option_ok then return end
+    local n = 0
+    for _, o in ipairs(H.OPTIONS) do
+        local spec = {type = o.type, mod = &#x27;Hive Lord HUD&#x27;, label = o.label, description = o.description, gap = o.gap,
+                      default = o.default, choices = o.choices, step = o.step}
+        if o.type == &#x27;choice&#x27; then spec.default = to_menu(o, o.default) end
+        if o.type == &#x27;slider&#x27; then spec.min, spec.max = SIZE_RANGE[o.key][1], SIZE_RANGE[o.key][2] end
+        o.ok = reg(H.opt_id(o), spec)
+        if o.ok then n = n + 1 end
+    end
+    writer(string.format(&#x27;mod options: registered %s + %d of %d settings&#x27;, OPTION_ID, n, #H.OPTIONS))
+    pcall(M.set, &#x27;hivelordhud.preview&#x27;, false)     -- preview is per session: never comes back on by itself
+    -- cfg.menu: 0 = menu never seen (copy every saved setting into it); 1, 2 = older menu layouts (copy the rows
+    -- added since, see `since`); 3 = the menu is the source.
+    if (H.cfg.menu or 0) &lt; 3 then
+        for _, o in ipairs(H.OPTIONS) do
+            if o.ok and (o.since or 1) &gt; (H.cfg.menu or 0) then pcall(M.set, H.opt_id(o), to_menu(o, H.cfg[o.key])) end
+        end
+        writer(&#x27;mod options: copied saved settings into the menu (from cfg level &#x27; .. tostring(H.cfg.menu) .. &#x27;)&#x27;)
+        H.cfg.menu = 3
+-- …（共 50 行，完整內容見原始碼頁）</code></pre></details></li><li><a class="loc" href="source-zh.html#fix-a43">plate_fix.lua 第 287–304 行</a>　<b>一個開關的設定選單</b>：有 Mod Options Menu 就註冊一個開關，每 10 幀讀一次；沒有就一直開著。<details><summary>展開這段程式碼</summary><pre class="lua"><code>function M.poll_option()
+    local MOM = rawget(_G, &#x27;ModOptionsMenu&#x27;)
+    if type(MOM) ~= &#x27;table&#x27; then return end
+    if not M.option_tried then
+        M.option_tried = true
+        local ok, done = pcall(MOM.register_option, OPTION_ID, {
+            type = &#x27;toggle&#x27;, mod = &#x27;Hive Lord Plate Fix&#x27;, label = &#x27;Fix dead plates that stay on&#x27;, default = true,
+            description = &quot;A plate destroyed by damage your game did not resolve itself (e.g. a teammate&#x27;s Eagle) loses its collision but can stay drawn, looking intact. When a plate has been at 0% for 1.5 s and is still drawn, hide it the way the game would have. Only changes what you see.&quot;})
+        M.option_ok = ok and done
+        if not M.option_ok then writer(&#x27;mod options: register failed&#x27;) end
+    end
+    if not M.option_ok or M.frame % 10 ~= 0 then return end
+    local ok, v = pcall(MOM.get, OPTION_ID)
+    if ok and type(v) == &#x27;boolean&#x27; and v ~= M.enabled then
+        M.enabled = v
+        writer(&#x27;fix &#x27; .. (v and &#x27;enabled&#x27; or &#x27;disabled&#x27;) .. &#x27; from Mod Options Menu&#x27;)
+    end
+end</code></pre></details></li></ul></div>
   <div class="takeaway"><b>重點</b><ol>
     <li>模組骨架：單例守衛 → 環境檢查 → 包裝 update（pcall + 解除武裝）→ 每幀工作。</li>
     <li>每條規則都對應前面的一個原理，大多是當掉之後才補上的。</li>
@@ -1305,6 +1977,17 @@ apply_damage(g_health_system, entity, /* ... */);</pre></div>
     <li><b>畫面也能離線看</b>：把模組呼叫的 <code>Gui.rect</code>、<code>Gui.text</code> 記錄下來，用 Python 畫成圖片，進遊戲前就能看版面。Hive Lord HUD 的展示圖和模組圖示就是這樣產生的。</li>
   </ul>
   <div class="hudlog"><b>Hive Lord HUD 此時</b>有幾十個測試腳本（<code>test_v83.py</code>、<code>test_v108.py</code>…），多數版本都記錄著「殺掉了幾個變異」。它們抓到過不少進遊戲前就會出事的錯，例如：在定義某個表之前就用到它（模組會在遊戲裡直接解除武裝）、診斷用的緩衝區被誤當成血量紀錄採用（它也通過了指紋檢查）。也踩過一個測試本身的坑：測試讀寫的是<b>真正的</b>設定檔，把玩家的設定改掉了，之後所有測試都改成導到暫存資料夾。</div>
+  <div class="srcbox"><b>在原始碼裡</b><ul><li><a class="loc" href="source-zh.html#fix-a37">plate_fix.lua 第 100–110 行</a>　<b>留給測試的接縫</b>：時間和 game.dll 基址都可以被測試替換，離線測試才能在假的記憶體結構上執行這個模組。<details><summary>展開這段程式碼</summary><pre class="lua"><code>function M.now()                                   -- seconds; tests replace this
+    k32.QueryPerformanceCounter(QB)
+    return tonumber(QB[0]) / QFREQ
+end
+
+function M.game_base()
+    if M.GAME_BASE then return M.GAME_BASE end      -- tests
+    local ok, m = pcall(function() return tonumber(ffi.cast(&#x27;uintptr_t&#x27;, ffi.C.GetModuleHandleA(&#x27;game.dll&#x27;))) end)
+    if ok and m and m ~= 0 then return m end
+    return nil
+end</code></pre></details></li></ul></div>
   <div class="takeaway"><b>重點</b><ol>
     <li>模組跟遊戲的互動只有三個管道，全部換成假的就能離線執行。</li>
     <li>假物件要模仿遊戲的嚴格與壞習慣，誘餌要能騙過不小心的驗證。</li>
@@ -1389,6 +2072,37 @@ print('hi')</textarea>
     <li>Loader 本身也綁定遊戲版本，大更新後要等 Loader 先更新。</li>
   </ul>
   <div class="hudlog"><b>Hive Lord HUD 此時</b>為了誠實面對多人的限制，加了「&lt;」標記：中途加入、或發現主機修正過我們的數字之後，板子的 % 和主血前面會加「&lt;」，代表「最多剩這麼多」。也研究過能不能讓主機送出真實血量，結論是路不通，而且送網路請求會影響別人的遊戲，所以不做。</div>
+  <div class="srcbox"><b>在原始碼裡</b><ul><li><a class="loc" href="source-zh.html#hud-a22">hive_lord_hud.lua 第 880–944 行</a>　<b>誰改了這個部位？</b>：逐幀比較部位狀態。HP 剛好落在 -1 或 -構造值、主血卻沒掉，代表是主機的事件；從第一次主機修正起，板子的 % 都加上「&lt;」。<details><summary>展開這段程式碼</summary><pre class="lua"><code>-- =========================================================================
+-- Zone tracking
+-- =========================================================================
+-- Per-frame zone bookkeeping for H.state_diag (last zone HP, last main HP), plus one log line for a big one-frame main
+-- HP drop or the drop to 0 at death (the host&#x27;s death event snaps a client&#x27;s main HP to 0). Research logging (per-
+-- second zone changes, raw record dumps, late-join hit logs) lives in the optional diag module (hive_lord_diag.lua).
+function H.track_zones(L, hp)
+    local t = now_s()
+    local d = L.diag
+    local id = L.adopted.ent or L.adopted.z     -- the direct lookup&#x27;s address moves with the array; the entity doesn&#x27;t
+    if not d or d.id ~= id then
+        d = {id = id, last = {}}
+        L.diag = d
+        for slot = 0, 37 do d.last[slot] = hp.zones[slot] end
+        return
+    end
+    H.state_diag(d, hp, t)
+    if hp.main and d.last_main and (d.last_main - hp.main &gt;= 8000 or (hp.main == 0 and d.last_main &gt; 0)) then
+        writer(string.format(&#x27;MAIN JUMP t=%.1f: %d -&gt; %d in one frame (drop %d)&#x27;, t, d.last_main, hp.main, d.last_main - hp.main))
+    end
+    d.last_main = hp.main
+    for slot = 0, 37 do
+        local v = hp.zones[slot]
+        if v ~= nil then d.last[slot] = v end
+    end
+end
+
+-- Who changed a zone&#x27;s state? Our machine only resolves the hits it simulates; the host sends zone-state
+-- events, which the state machine applies with HP = min(HP, -1) (cracked) or min(HP, -constitution) (dead).
+-- So: a state change that lands HP on exactly -1 / -constitution in a frame where our main HP did not drop came from
+-- …（共 65 行，完整內容見原始碼頁）</code></pre></details></li></ul></div>
   <div class="takeaway"><b>重點</b><ol>
     <li>用戶端模組只看得到自己這台電腦的資料，主機決定的事改不了。</li>
     <li>顯示的數字要誠實標出不確定性。</li>
@@ -1459,6 +2173,45 @@ print('hi')</textarea>
     <div class="card"><h4>引擎呼叫守則</h4><ul><li>每次呼叫前確認 world 還活著（<code>world_is_live</code>）</li><li>對任何單位呼叫前先 <code>Unit.alive(u)</code></li><li>Hive Lord 死後完全不碰屍體</li><li>完全不呼叫 <code>stingray.Network.*</code>（會讓引擎直接終止）</li></ul></div>
   </div>
   <div class="hudlog"><b>Hive Lord HUD 此時</b>的設計原則就是這一章：HUD 只讀資料；Plate Fix 只寫一個「這塊板子要不要畫」的 bit，而且是遊戲自己本來就會寫的值；兩者都不改程式碼、不送網路封包、不影響其他玩家。</div>
+  <div class="srcbox"><b>在原始碼裡</b><ul><li><a class="loc" href="source-zh.html#fix-a36">plate_fix.lua 第 88–96 行</a>　<b>唯一的寫入：1 個 byte</b>：先讀出那個 byte、OR 進一個 bit、只寫回 1 byte，把跟遊戲同時寫入的時間窗縮到最小。寫的值跟遊戲自己的 gore 會寫的一樣。<details><summary>展開這段程式碼</summary><pre class="lua"><code>-- OR one bit into the byte that holds it: a single-byte write keeps the window against the game&#x27;s own writes tiny.
+local function set_bit(addr, bit)
+    local a = addr + math.floor(bit / 8)
+    if safe_read(a, 1, WB) &lt; 1 then return false end
+    local v = bitlib.bor(WB[0], bitlib.lshift(1, bit % 8))
+    if v == WB[0] then return true end
+    WB[0] = v
+    return k32.WriteProcessMemory(SELF, ffi.cast(&#x27;void*&#x27;, a), WB, 1, NIO) ~= 0
+end</code></pre></details></li><li><a class="loc" href="source-zh.html#fix-a42">plate_fix.lua 第 225–266 行</a>　<b>什麼時候才寫</b>：健全性檢查（遮罩 32、33 必須是隱藏）不通過就什麼都不寫；板子摧毀 1.5 秒、而且 base 和 applied 兩個遮罩都還顯示，才寫隱藏位元；最多 3 次，每次都寫 log。<details><summary>展開這段程式碼</summary><pre class="lua"><code>function M.check(L, t)
+    local rec = health_index(L.ent)
+    if not rec or not read_hive_record(rec) then return false end         -- gone (despawned)
+    if t &gt;= (L.next_vis or 0) or not L.vis then L.vis, L.next_vis = vis_entry(L.ent), t + 1 end
+    local v = L.vis
+    local lo, hi, alo, ahi = nil, nil, nil, nil
+    if v then lo, hi = mask(v.rendered); alo, ahi = mask(v.applied) end
+    -- Same sanity check as the HUD: the two unwired masks (32, 33) are always hidden on a Hive Lord. Anything else
+    -- means the entry now belongs to another unit (the table was compacted): look it up again, write nothing.
+    local sane = hi and bitlib.band(hi, 3) == 3
+    if v and not sane then L.vis = nil end
+    for slot, pm in pairs(PLATE_MASK) do
+        local hp = i32(Z_OFF + slot * 4)
+        if hp &lt;= -PLATE_CON and not L.dead[slot] then L.dead[slot] = t end
+        local died, f = L.dead[slot], L.fix[slot]
+        if M.enabled and sane and died and not (f and f.gave_up) then
+            local applied_hidden = alo and mbit(alo, ahi, pm)
+            local shown = not mbit(lo, hi, pm) and not applied_hidden
+            if shown and t - died &gt;= FIX_DELAY then
+                f = f or {n = 0}
+                L.fix[slot] = f
+                if t &gt;= (f.next or 0) then
+                    if f.n &gt;= FIX_TRIES then
+                        f.gave_up = true
+                        writer(string.format(&#x27;entity 0x%X plate slot %d: still drawn after %d tries - giving up (%s)&#x27;,
+                            L.ent, slot, f.n, M.masks(v)))
+                    else
+                        f.n, f.next, f.at = f.n + 1, t + RETRY_S, t
+                        local ok = set_bit(v.override, pm) and set_bit(v.touched, pm)
+                        writer(string.format(&#x27;entity 0x%X plate slot %d: dead %.1f s but still drawn -&gt; hid model mask %d (%s), try %d (%s)&#x27;,
+-- …（共 42 行，完整內容見原始碼頁）</code></pre></details></li></ul></div>
   <div class="takeaway"><b>重點</b><ol>
     <li>反作弊找的是「外來的程式碼和外來的存取」，模組是由遊戲自己執行的資料。</li>
     <li>沒被擋不等於被允許，界線在於做什麼：只改自己的畫面，不影響別人。</li>

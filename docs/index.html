@@ -206,6 +206,14 @@ pre code { overflow-wrap: normal; }
 .langswitch a:hover { background: var(--panel2); }
 .langswitch .on { background: var(--accent); color: var(--accent-ink); font-weight: 700; }
 @media (max-width: 900px) { .langswitch { top: 10px; right: 10px; font-size: .82rem; } .langswitch a, .langswitch span { padding: 5px 11px; } }
+.srcbox { border: 1px solid var(--line); border-left: 3px solid #c07cf0; border-radius: 0 10px 10px 0; background: var(--panel); padding: 10px 16px; margin: 18px 0 12px; }
+.srcbox > b:first-child { display: block; font-size: .78rem; letter-spacing: .1em; color: var(--sub); margin-bottom: 4px; }
+.srcbox ul { list-style: none; padding: 0; margin: 0; }
+.srcbox li { margin: 8px 0; }
+.srcbox .loc { font-family: Consolas, monospace; font-size: .85rem; }
+.srcbox details { border: 0; background: none; padding: 0; margin: 4px 0 0; }
+.srcbox details summary { font-weight: 400; font-size: .88rem; color: var(--sub); }
+.srcbox pre { margin: 6px 0 0; font-size: 12px; max-height: 420px; overflow: auto; }
 .menu-btn { display: none; }
 @media (max-width: 900px) {
   .wrap { grid-template-columns: 1fr; padding: 0 16px; }
@@ -250,6 +258,7 @@ pre code { overflow-wrap: normal; }
   <a href="#dropped">Tried and dropped</a>
   <a href="#pitfalls">Pitfalls</a>
   <a href="#files">What's in the download</a>
+  <a href="source.html">Source code, linked</a>
   <a href="#glossary">Glossary</a>
   <div class="tools"><button id="themeBtn">Light theme</button><a class="btn" href="zh.html" hreflang="zh-Hant" lang="zh-Hant">繁體中文</a></div>
 </nav>
@@ -311,6 +320,7 @@ pre code { overflow-wrap: normal; }
     <li><b>New concepts</b>: terms that appear for the first time in this chapter, five or six at most, explained before they're used.</li>
     <li><b>Main text</b>: written as “Because …, …” wherever possible, so you can see how the ideas connect.</li>
     <li><b>Hive Lord HUD at this point</b>: what this principle actually meant while building the HUD.</li>
+    <li><b>In the source</b>: the lines of the real mod that implement this chapter, with a link to the annotated source page.</li>
     <li><b>Key points</b> and <b>Check yourself</b>: after reading, try to answer first, then expand to see the answer. Anything you can't answer is a connection you haven't built yet.</li>
   </ul>
   <div class="note">The Hive Lord HUD and Dead Plate Fix mods themselves can be downloaded from <a href="https://github.com/dctime/hd2-hive-lord-hud/releases/latest">GitHub Releases</a> (the <code>Source/</code> folder in the zip is the full source code). This document only covers how mods work.</div>
@@ -406,6 +416,54 @@ end</code></pre>
   <p>But there's a catch: <b>this code itself has to be run once first</b> before it can replace <code>update</code>. The game only runs the few Lua scripts it knows about; it won't run an unfamiliar Lua resource. So who runs it that first time? That's the Loader, in the next chapter.</p>
 
   <div class="hudlog"><b>Hive Lord HUD at this point</b>The approach was settled: the HUD would be written in Lua and hook onto <code>update</code> to run every frame. The HUD's final entry point (<code>H.install()</code>) is just a beefed-up version of this chapter's five lines, with error protection (Chapter 4) and self-timing added.</div>
+  <div class="srcbox"><b>In the source</b><ul><li><a class="loc" href="source.html#hud-a32">hive_lord_hud.lua lines 2564–2619</a> <b>The hook: wrapping the game&#x27;s update()</b>: The full version of Chapter 2&#x27;s five lines: keep the original update, replace it, run the HUD under pcall each frame, disarm for good on a fault, and always call the original.<details><summary>Show this code</summary><pre class="lua"><code>function H.install()
+    if H.armed then return true end
+    local original = rawget(_G, &#x27;update&#x27;)
+    if type(original) ~= &#x27;function&#x27; then
+        writer(&#x27;install refused: no global update()&#x27;)
+        return false
+    end
+    if not (Gui and Vector2 and Vector3 and Color and World and Unit and App) then
+        writer(&#x27;install refused: missing engine API&#x27;)
+        return false
+    end
+    H.text_ok = attempt(App.can_get, &#x27;font&#x27;, H.FONT) == true and attempt(App.can_get, &#x27;material&#x27;, H.FONT) == true
+    H.armed = true
+    -- Self-timing: how much frame time the HUD costs (QueryPerformanceCounter around H.update).
+    pcall(ffi.cdef, &#x27;int QueryPerformanceCounter(int64_t* c); int QueryPerformanceFrequency(int64_t* f);&#x27;)
+    local qpc, qbuf = nil, ffi.new(&#x27;int64_t[1]&#x27;)
+    pcall(function()
+        local k = ffi.load(&#x27;kernel32&#x27;)
+        k.QueryPerformanceFrequency(qbuf)
+        local freq = tonumber(qbuf[0])
+        if freq and freq &gt; 0 then
+            qpc = function() k.QueryPerformanceCounter(qbuf); return tonumber(qbuf[0]) * 1000 / freq end
+        end
+    end)
+    H.cost = {sum = 0, max = 0, n = 0, scan_sum = 0, scan_n = 0}
+    rawset(_G, &#x27;update&#x27;, function(...)
+        if H.armed then
+            local on = H.option_enabled()
+            if on ~= H.enabled then
+                H.enabled = on
+-- … (56 lines in total; see the source page for all of it)</code></pre></details></li><li><a class="loc" href="source.html#fix-a44">plate_fix.lua lines 306–323</a> <b>A second hook</b>: Plate Fix wraps the global update too, on top of the HUD&#x27;s wrapper. Each wrapper calls the previous one, so both mods can coexist.<details><summary>Show this code</summary><pre class="lua"><code>function M.install()
+    if M.armed then return true end
+    local original = rawget(_G, &#x27;update&#x27;)
+    if type(original) ~= &#x27;function&#x27; then writer(&#x27;install refused: no global update()&#x27;); return false end
+    M.armed = true
+    rawset(_G, &#x27;update&#x27;, function(...)
+        if M.armed then
+            if M.hello then writer(M.hello); M.hello = nil end
+            local ok, why = pcall(function() M.poll_option(); M.update() end)
+            if not ok then
+                M.armed = false
+                writer(&#x27;disarmed after fault: &#x27; .. tostring(why))
+            end
+        end
+        return original(...)
+    end)
+    return true
+end</code></pre></details></li></ul></div>
   <div class="takeaway"><b>Key points</b><ol>
     <li>The engine has Lua built in, and calls the global function <code>update</code> every frame.</li>
     <li>Global variables can be changed, so replacing <code>update</code> lets you run your own code every frame (a hook).</li>
@@ -500,6 +558,19 @@ mods/cowboybingus/consistent_vaulting: not installed
   </div>
 
   <div class="hudlog"><b>Hive Lord HUD at this point</b> For its first 69 versions, the HUD was actually packed into the same mod as Recon, a research mod we wrote for ourselves and never released (Chapter 9 explains how it works), loaded by the Loader. Only at v70 did it split off and get its own resource name, <code>mods/hivelordhud/hive_lord_hud</code>. The later Dead Plate Fix is a second resource, <code>mods/hivelordhud/plate_fix</code>, and is a separate option you can tick on its own in Arsenal.</div>
+  <div class="srcbox"><b>In the source</b><ul><li><a class="loc" href="source.html#hud-a0">hive_lord_hud.lua lines 1</a> <b>The line the Loader looks for</b>: The first line is the declaration the Loader uses to find the mod. The name must match the packed resource name exactly, and it must stay plain text: compiling to bytecode drops it.<details><summary>Show this code</summary><pre class="lua"><code>-- HD2-Addon: mods/hivelordhud/hive_lord_hud</code></pre></details></li><li><a class="loc" href="source.html#hud-a4">hive_lord_hud.lua lines 37–49</a> <b>Using the Loader&#x27;s shared log folder</b>: Prefer the open_log the Loader provides so the log sits next to every other mod; fall back to %TEMP% only without the Loader.<details><summary>Show this code</summary><pre class="lua"><code>local function open_own_log()
+    if own_log ~= nil then return own_log end
+    own_log = false
+    local name = &#x27;HiveLordHud_&#x27; .. ((os and os.date and os.date(&#x27;%Y%m%d_%H%M%S&#x27;)) or &#x27;session&#x27;) .. &#x27;.log&#x27;
+    local loader = rawget(_G, &#x27;CowboyBingusModLoader&#x27;)
+    local ok, f = pcall(function() return loader and loader.open_log and loader.open_log(name) end)
+    if not (ok and f) then
+        local temp = os and os.getenv and os.getenv(&#x27;TEMP&#x27;)
+        f = temp and io.open(temp .. &#x27;\\&#x27; .. name, &#x27;w&#x27;)
+    end
+    if f then own_log, H.log = f, name end
+    return own_log
+end</code></pre></details></li><li><a class="loc" href="source.html#fix-a33">plate_fix.lua lines 1</a> <b>A second resource name</b>: Dead Plate Fix is a separate resource and a separate Arsenal option, so it can be installed without the HUD.<details><summary>Show this code</summary><pre class="lua"><code>-- HD2-Addon: mods/hivelordhud/plate_fix</code></pre></details></li></ul></div>
   <div class="takeaway"><b>Key points</b><ol>
     <li>The Loader uses a patch file to override a vanilla script that “the game always loads at startup”, and keeps that script's original features.</li>
     <li>The Loader then scans every patch file, finds mods by their first line <code>-- HD2-Addon:</code>, and runs <code>require</code> on each one.</li>
@@ -579,6 +650,200 @@ mods/cowboybingus/consistent_vaulting: not installed
       <li><b>v40</b>: <code>Unit.world_position(u, 0)</code> returned the origin for every unit, so distance was always 0 m. Switched to named bones (head, root).</li>
     </ul>
   </div>
+  <div class="srcbox"><b>In the source</b><ul><li><a class="loc" href="source.html#hud-a2">hive_lord_hud.lua lines 16–21</a> <b>Lifecycle rules paid for in crashes</b>: Run inside the update wrapper, disarm on the first fault, check the world is live before every call, treat Gui as retained mode, pass real engine objects. Each of these five rules matches a crash in Chapter 4.<details><summary>Show this code</summary><pre class="lua"><code>-- Lifecycle (same as HUD+, which is known to be stable):
+--   * runs inside a wrapper around the engine&#x27;s global `update` (main thread, once per frame) and disarms itself
+--     permanently on the first Lua fault
+--   * every engine call is gated on the world being live
+--   * Gui is retained-mode: Gui.rect once -&gt; id, then Gui.update_rect(id); World.destroy_gui on teardown
+--   * vectors / colours are real engine objects: Vector3(x, y, layer), Vector2(w, h), Color(a, r, g, b)</code></pre></details></li><li><a class="loc" href="source.html#hud-a6">hive_lord_hud.lua lines 71–79</a> <b>Check the world is still alive first</b>: A world that has gone takes its Gui with it. Before any engine call, check it is still in the list.<details><summary>Show this code</summary><pre class="lua"><code>local function world_is_live(world)
+    if world == nil or not App then return false end
+    local worlds = attempt(App.worlds)
+    if type(worlds) ~= &#x27;table&#x27; then return false end
+    for i = 1, #worlds do
+        if worlds[i] == world then return true end
+    end
+    return false
+end</code></pre></details></li><li><a class="loc" href="source.html#hud-a8">hive_lord_hud.lua lines 182–217</a> <b>Finding the Hive Lord with the engine API</b>: World.units lists every unit; check Unit.alive, then compare Unit.resource_name against the Hive Lord hash. A dead corpse is skipped by address and never even asked alive again.<details><summary>Show this code</summary><pre class="lua"><code>function H.find_hive_lord(worlds, t)
+    if not World or type(World.units) ~= &#x27;function&#x27; then return nil end
+    if H.dead_addr and t - (H.dead_addr_t or t) &gt; 300 then H.dead_addr = nil end
+    local total = 0
+    for _, rec in ipairs(settled_worlds(worlds, t)) do
+        local units = attempt(World.units, rec.w)
+        if type(units) == &#x27;table&#x27; then
+            rec.n = #units
+            total = total + #units
+            if not rec.logged then describe_world(rec, units) end
+            local hl, hl_name, divers, cams = nil, nil, {}, {}
+            for i = 1, #units do
+                local u = units[i]
+                -- The game crashed twice ~60 s after a Hive Lord died, while we kept polling its corpse as it was
+                -- despawned (logs 222058 / 233615). Once dead it is never touched again, not even Unit.alive.
+                if H.dead_addr and handle_addr(u) == H.dead_addr then
+                    -- skip
+                elseif attempt(Unit.alive, u) then
+                    local name = attempt(Unit.resource_name, u)
+                    if name ~= nil then
+                        local s = tostring(name):lower()
+                        if not hl and is_hive_lord(s) then hl, hl_name = u, tostring(name)
+                        elseif s:find(AVATAR_HEX, 1, true) then divers[#divers + 1] = u
+                        elseif s:find(CAMERA_HEX, 1, true) then cams[#cams + 1] = u end
+                    end
+                end
+            end
+            if hl then
+                H.live.units_seen, H.live.divers, H.live.cams = total, divers, cams
+                return hl, rec.w, hl_name
+-- … (36 lines in total; see the source page for all of it)</code></pre></details></li><li><a class="loc" href="source.html#hud-a9">hive_lord_hud.lua lines 219–224</a> <b>The Unit.world_position trap</b>: Node 0 reads (0,0,0) for every unit, so named bones (root, head) are used instead, checked with has_node first because an unknown name triggers an engine assert.<details><summary>Show this code</summary><pre class="lua"><code>-- Root node world position. Index 0 is the root (scene node indices are 0-based); guarded by node count.
+-- Vector3 fields are unreliable here, so parse tostring &#x27;Vector3(x, y, z)&#x27;.
+-- Node 0 is a static root that reads (0,0,0) for the Hive Lord and every avatar, so named bones are used instead,
+-- resolved once per unit (Unit.has_node first: Unit.node asserts on unknown names).
+local BODY_NODES = {&#x27;root&#x27;, &#x27;j_root&#x27;, &#x27;hips&#x27;, &#x27;j_hips&#x27;, &#x27;pelvis&#x27;, &#x27;j_pelvis&#x27;, &#x27;spine&#x27;, &#x27;j_spine&#x27;, &#x27;head&#x27;, &#x27;j_head&#x27;}
+local node_cache = setmetatable({}, {__mode = &#x27;k&#x27;})</code></pre></details></li><li><a class="loc" href="source.html#hud-a23">hive_lord_hud.lua lines 991–1032</a> <b>Retained-mode prims</b>: Each rect and text gets an id when created and is only modified afterwards; groups handle fades and destruction.<details><summary>Show this code</summary><pre class="lua"><code>local function new_group(name)
+    local g = {name = name, a = 0, prims = {}, born = H.frame}
+    H.grp[name] = g
+    return g
+end
+
+-- Rect prim: c = {a, r, g, b}; w may change later (bars).
+local function add_rect(g, x, y, w, h, c, layer)
+    local p = {kind = &#x27;rect&#x27;, x = x, y = y, w = w, h = h, c = c, layer = layer or LAYER}
+    p.id = Gui.rect(H.ui.gui, Vector3(x, y, p.layer), Vector2(w, h), Color(0, c[2], c[3], c[4]))
+    g.prims[#g.prims + 1] = p
+    return p
+end
+
+-- Text prim, created with its real initial string (updates in the creation frame are dropped by the engine).
+-- align: &#x27;l&#x27; (x = left), &#x27;r&#x27; (x = right edge), &#x27;c&#x27; (x = centre).
+local function text_pos(p)
+    if p.align == &#x27;l&#x27; then return p.x end
+    local w = text_width(p.str, p.size)
+    if p.align == &#x27;r&#x27; then return p.x - w end
+    return p.x - w / 2
+end
+
+-- Bold: the debug font has no bold face, so a text is drawn bold_px(size) + 1 times, each copy 1 px further right (a
+-- solid thicker stroke; a single copy shifted by several px reads as a double image). Every copy sits on whole pixels
+-- at a whole-pixel size: at fractional positions each copy is resampled on its own and the stack smears.
+local function bold_px(size) return math.max(1, math.floor(size / 16 + 0.5)) end
+local function px(v) return math.floor(v + 0.5) end
+H.bold_px = bold_px
+
+-- … (42 lines in total; see the source page for all of it)</code></pre></details></li><li><a class="loc" href="source.html#hud-a24">hive_lord_hud.lua lines 1059–1073</a> <b>Destroy what you no longer use</b>: Once a group has faded out, every prim is removed from the Gui. v0 crashed because it never did this.<details><summary>Show this code</summary><pre class="lua"><code>local function destroy_group(name)
+    local g = H.grp[name]
+    if not g then return end
+    if H.ui.gui then
+        for _, p in ipairs(g.prims) do
+            if p.kind == &#x27;rect&#x27; then pcall(Gui.destroy_rect, H.ui.gui, p.id)
+            elseif p.kind == &#x27;tri&#x27; then tri_free(p)
+            else
+                pcall(Gui.destroy_text, H.ui.gui, p.id)
+                for _, id in ipairs(p.copies or {}) do pcall(Gui.destroy_text, H.ui.gui, id) end
+            end
+        end
+    end
+    H.grp[name] = nil
+end</code></pre></details></li><li><a class="loc" href="source.html#hud-a25">hive_lord_hud.lua lines 1078–1088</a> <b>Undoing tone mapping</b>: The Gui is drawn before exposure and tone mapping, so colours come out about 3x brighter. Before sending: sent = wanted / gain + black.<details><summary>Show this code</summary><pre class="lua"><code>-- Colour correction. The screen gui is drawn before the game&#x27;s exposure / tone mapping, so a colour comes out roughly
+-- 3x brighter with the darks crushed (a {96,2,18} strip showed as 243,0,0; greys of 150-240 as pure white). Colours
+-- are authored as they should look and mapped back here: sent = shown / gain + black. &#x27;Colour correction&#x27; slider:
+-- 100 = gain 3, black 18; 0 = off; 150 = stronger.
+function H.color_out(v)
+    local f = (tonumber(H.cfg and H.cfg.color_fix) or 100) / 100
+    if f &lt;= 0 then return math.floor(v + 0.5) end
+    local gain, black = 1 + 2 * f, 18 * f
+    return math.floor(math.min(255, v / gain + black) + 0.5)
+end
+local color_out = H.color_out</code></pre></details></li><li><a class="loc" href="source.html#hud-a26">hive_lord_hud.lua lines 1090–1121</a> <b>Only send what changed</b>: Each prim remembers what it last sent; if nothing changed, the Gui is not called, which keeps the per-frame cost low.<details><summary>Show this code</summary><pre class="lua"><code>local function draw(p, ga)
+    local a = math.floor(p.c[1] * ga + 0.5)
+    local k = ga &lt; 1 and (0.15 + 0.85 * ga) or 1
+    local r, gg, b = color_out(p.c[2] * k), color_out(p.c[3] * k), color_out(p.c[4] * k)
+    if p.kind == &#x27;rect&#x27; then
+        local w = ga &lt; 0.04 and 0 or p.w
+        local key = a * 16777216 + r * 65536 + gg * 256 + b + math.floor(w * 4) * 4294967296
+        local pk = math.floor(p.x) * 65536 + math.floor(p.y)
+        if key == p.key and pk == p.pk and p.h == p.lh then return end
+        p.key, p.pk, p.lh = key, pk, p.h
+        Gui.update_rect(H.ui.gui, p.id, Vector3(p.x, p.y, p.layer or LAYER), Vector2(w, p.h), Color(a, r, gg, b))
+    elseif p.kind == &#x27;tri&#x27; then
+        local key = a * 16777216 + r * 65536 + gg * 256 + b
+        if key == p.key then return end
+        p.key = key
+        tri_free(p)
+        tri_make(p, a, r, gg, b)
+        if H.tri_error and (p.fi or p.tick) then     -- a facet / bar stripe failed to re-create: rects from now on
+            H.poly_tri_off, H.tri_error, H.poly_rebuild = H.tri_error, nil, true
+        end
+    else
+        local str = ga &lt; 0.04 and &#x27; &#x27; or p.str
+        local key = string.format(&#x27;%d,%d,%d,%d|%d,%d|%s&#x27;, a, r, gg, b, math.floor(p.x), math.floor(p.y), str)
+        if key == p.key then return end
+        p.key = key
+        local tx, ty, col = px(text_pos(p)), px(p.y), Color(a, r, gg, b)
+        Gui.update_text(H.ui.gui, p.id, str, H.font, p.size, H.font_mat, Vector3(tx, ty, p.layer), col)
+        for k, id in ipairs(p.copies or {}) do
+            Gui.update_text(H.ui.gui, id, str, H.font, p.size, H.font_mat, Vector3(tx + k, ty, p.layer), col)
+        end
+-- … (32 lines in total; see the source page for all of it)</code></pre></details></li><li><a class="loc" href="source.html#hud-a27">hive_lord_hud.lua lines 1738–1768</a> <b>Projecting 3D to the screen</b>: Camera.world_to_screen turns the Hive Lord&#x27;s position into screen coordinates. A log line is written before the first call: if the game crashes, the last line names the culprit.<details><summary>Show this code</summary><pre class="lua"><code>function H.project(wx, wy, wz)
+    local Camera, Quat = api(&#x27;Camera&#x27;), api(&#x27;Quaternion&#x27;)
+    if not Camera or type(Camera.world_to_screen) ~= &#x27;function&#x27; then return nil end
+    local pc = frame_camera(Camera, Quat)
+    local c = pc.c
+    if c == nil then return nil end
+    if not H.tag_called then
+        H.tag_called = true
+        writer(&#x27;tag: calling Camera.world_to_screen for the first time (if the game crashes now, this API is bad)&#x27;)
+    end
+    local ok, v = pcall(Camera.world_to_screen, c, Vector3(wx, wy, wz))
+    if not ok or v == nil then
+        if not H.tag_err then H.tag_err = true; writer(&#x27;tag: Camera.world_to_screen failed: &#x27; .. tostring(v)) end
+        return nil
+    end
+    local sx, sy, sz = parse3(v)
+    if not (sx and sy) then return nil end
+    local behind = false
+    if pc.fx and pc.px then
+        behind = (wx - pc.px) * pc.fx + (wy - pc.py) * pc.fy + (wz - pc.pz) * pc.fz &lt; 0
+    end
+    if H.tag_scale == nil then
+        local rw = type(Gui.render_resolution) == &#x27;function&#x27; and attempt(Gui.render_resolution) or nil
+        H.tag_scale = (type(rw) == &#x27;number&#x27; and rw &gt; 0) and (H.ui.width / rw) or 1
+        writer(string.format(&#x27;tag: first projection raw=(%s) gui=%dx%d render_w=%s scale=%.3f&#x27;, tostring(v), H.ui.width,
+            H.ui.height, tostring(rw), H.tag_scale))
+    end
+    sx, sy = sx * H.tag_scale, sy * H.tag_scale
+    if H.tag_flip then sy = H.ui.height - sy end
+    return sx, sy, behind, sz
+-- … (31 lines in total; see the source page for all of it)</code></pre></details></li><li><a class="loc" href="source.html#hud-a28">hive_lord_hud.lua lines 2198–2219</a> <b>Creating and tearing down the Gui</b>: Create a screen Gui on a world; on teardown destroy it only if the world is still alive, and merely forget it if the world is gone.<details><summary>Show this code</summary><pre class="lua"><code>local function build_gui(world)
+    local gui = World.create_screen_gui(world, &#x27;scale&#x27;, 1, 1)
+    if gui == nil then return false end
+    H.ui.gui, H.ui.world = gui, world
+    H.grp = {}
+    local w, h = Gui.resolution()
+    if type(w) == &#x27;number&#x27; and w &gt; 0 and type(h) == &#x27;number&#x27; and h &gt; 0 then
+        H.ui.width, H.ui.height = w, h
+        H.ui.scale = math.min(w / 1920, h / 1080)
+    end
+    writer(string.format(&#x27;overlay up (%dx%d, scale %.2f, text=%s)&#x27;, H.ui.width, H.ui.height,
+        H.ui.scale, tostring(H.text_ok)))
+    return true
+end
+
+-- Destroy only if the world is still alive; a dead world already took the gui with it.
+local function teardown()
+    if H.ui.gui ~= nil and world_is_live(H.ui.world) then
+        pcall(World.destroy_gui, H.ui.world, H.ui.gui)
+    end
+    H.ui.gui, H.ui.world, H.grp = nil, nil, {}
+end</code></pre></details></li><li><a class="loc" href="source.html#hud-a29">hive_lord_hud.lua lines 2239–2249</a> <b>Which world to draw on</b>: Pick the settled world with the fewest units (the UI one). main_world flips about every 3 s, so it cannot be used.<details><summary>Show this code</summary><pre class="lua"><code>-- Overlay world: the settled world with the fewest units (the UI world; the game world has thousands).
+-- main_world flips ~every 3s, so it can&#x27;t be used to tell them apart. Once chosen, kept while it lives.
+local t_now = 0
+local function pick_overlay_world()
+    local best
+    for _, rec in ipairs(H.worlds_seen) do
+        if t_now - rec.since &gt;= 10 and rec.n ~= nil and (best == nil or rec.n &lt; best.n) then best = rec end
+    end
+    if best then writer(string.format(&#x27;overlay on world #%d (%d units)&#x27;, best.idx, best.n)) end
+    return best and best.w
+end</code></pre></details></li></ul></div>
   <div class="takeaway"><b>Key points</b><ol>
     <li>The engine API lets a mod look at the scene, find objects and draw on screen, but anything it does not offer (like reading HP) cannot be done.</li>
     <li>Lua errors can be caught; errors inside the engine end the game outright, so you must “check before you call”.</li>
@@ -622,6 +887,16 @@ print(tonumber(buf[0]))                                             -- value of 
   </ul>
 
   <div class="hudlog"><b>Hive Lord HUD at this point</b>Settled that “reading HP” can only go through FFI: use <code>ReadProcessMemory</code> to read game memory. But that immediately turns into two questions: <b>where</b> in memory is the HP? And what does the data there <b>look like</b>? To answer them, you first need to understand memory (Chapter 6) and how the game organises its data (Chapter 7).</div>
+  <div class="srcbox"><b>In the source</b><ul><li><a class="loc" href="source.html#hud-a10">hive_lord_hud.lua lines 506–515</a> <b>Declaring Windows APIs with FFI</b>: Tell FFI what ReadProcessMemory and VirtualQuery look like, inside pcall (another mod may have declared them first), then load kernel32.<details><summary>Show this code</summary><pre class="lua"><code>pcall(ffi.cdef, [[
+unsigned long long VirtualQuery(const void* addr, void* buf, unsigned long long len);
+void* GetCurrentProcess(void);
+int ReadProcessMemory(void* process, const void* addr, void* buf, size_t size, size_t* read);
+typedef struct {
+    void* BaseAddress; void* AllocationBase; unsigned long AllocationProtect; unsigned short PartitionId;
+    unsigned long long RegionSize; unsigned long State; unsigned long Protect; unsigned long Type;
+} HLH_MBI;
+]])
+local k32 = ffi.load(&#x27;kernel32&#x27;)</code></pre></details></li></ul></div>
   <div class="takeaway"><b>Key points</b><ol>
     <li>FFI lets Lua call the Windows API and work with memory directly. It is the key to mods doing “things the engine doesn't expose”.</li>
     <li>It has no safety net: a mistake crashes the game outright.</li>
@@ -812,6 +1087,32 @@ print(tonumber(buf[0]))                                             -- value of 
   </div>
 
   <div class="hudlog"><b>Hive Lord HUD at this point</b>Knew the target: the Hive Lord's HP is an int32 somewhere on the game process's heap, at a different location every match. To find it reliably, it needs a fixed starting point (a global variable in game.dll's data section, remembered as an RVA), then follows pointers from there. But to know “which 4 bytes in the big block the pointer leads to are the main HP”, you need to understand how the game organises its data (Chapter 7).</div>
+  <div class="srcbox"><b>In the source</b><ul><li><a class="loc" href="source.html#hud-a16">hive_lord_hud.lua lines 601–618</a> <b>Base address + RVA</b>: GetModuleHandleA gives this launch&#x27;s game.dll base; add the RVA 0x3326688 and read the health system&#x27;s address. The base changes every launch, the RVA does not.<details><summary>Show this code</summary><pre class="lua"><code>function H.game_base()
+    if H.GAME_BASE then return H.GAME_BASE end                -- test harness
+    local ok, m = pcall(function() return tonumber(ffi.cast(&#x27;uintptr_t&#x27;, ffi.C.GetModuleHandleA(&#x27;game.dll&#x27;))) end)
+    if ok and m and m ~= 0 then return m end
+    return nil
+end
+
+local function health_sys()
+    local base = H.game_base()
+    if not base then return nil, &#x27;game.dll not found&#x27; end
+    local S = ptr(base + HEALTH_SYS_RVA)
+    if not S then return nil, &#x27;health system not created&#x27; end
+    local keys, cap, recs = ptr(S + HS_KEYS), u32(S + HS_CAP), ptr(S + HS_RECS)
+    if not (keys and cap and recs) or cap == 0 or cap &gt; 0x40000 then
+        return nil, string.format(&#x27;health system layout unexpected (cap=%s)&#x27;, tostring(cap))
+    end
+    return {S = S, keys = keys, cap = cap, recs = recs, empty = u32(S + HS_EMPTY)}
+end</code></pre></details></li><li><a class="loc" href="source.html#fix-a40">plate_fix.lua lines 140–148</a> <b>Base + RVA, then validate</b>: Read the system&#x27;s address from the game.dll base plus the RVA, and check the key table and capacity look sane; if not, do nothing.<details><summary>Show this code</summary><pre class="lua"><code>local function table_header(base_rva, keys_off, cap_off)
+    local base = M.game_base()
+    if not base then return nil end
+    local S = ptr(base + base_rva)
+    if not S then return nil end
+    local keys, cap = ptr(S + keys_off), u32(S + cap_off)
+    if not keys or not cap or cap == 0 or cap &gt; 0x40000 then return nil end
+    return S, keys, cap
+end</code></pre></details></li></ul></div>
   <div class="takeaway"><b>Key points</b><ol>
     <li>In memory, a number is just a few bytes. An int32 is 4 bytes, low byte first.</li>
     <li>Every process has its own virtual memory. An outside program has to go through Windows to read it; a mod inside the process doesn't.</li>
@@ -886,6 +1187,73 @@ records[6].main_hp -= 500;   // enemy #6 loses 500 HP</pre></div>
   </details>
 
   <div class="hudlog"><b>Hive Lord HUD at this point</b>Knew what the data to read looks like: one record in the health system's array, 440 bytes each, main HP at +0x14, the 38 zones' HP at +0xF8, armour at +0x5C, and a 0xFFFF marker at the end. But none of these offsets, the stride, or the health system's location were guessed — they were found with the tools in Part B.</div>
+  <div class="srcbox"><b>In the source</b><ul><li><a class="loc" href="source.html#hud-a12">hive_lord_hud.lua lines 522–530</a> <b>Offsets inside the record</b>: Offsets of main HP, armour and the end marker relative to the zone array, plus the per-zone maximums. This is the code version of the memory map in Chapter 7.<details><summary>Show this code</summary><pre class="lua"><code>local OFF_MAIN, OFF_ARMOR0, OFF_MARKER = -0xE4, -0x98, 0x98
+local WIN_LO, WIN_HI = 0xF0, 0xA0  -- read [Z - 0xF0, Z + 0xA0)
+local WIN_LEN = WIN_LO + WIN_HI
+
+-- Per-slot max HP / constitution, built from H.GROUPS.
+local MAXHP, MAXCON = {}, {}
+for _, g in ipairs(H.GROUPS) do
+    for _, z in ipairs(g.zones) do MAXHP[z.slot], MAXCON[z.slot] = z.hp, z.con or g.con or 0 end
+end</code></pre></details></li><li><a class="loc" href="source.html#hud-a14">hive_lord_hud.lua lines 546–567</a> <b>The fingerprint: 39 armour values</b>: Every record read checks the end marker, the 39 armour values that never change in a fight, and the HP range of every zone. Any mismatch means it is not a Hive Lord.<details><summary>Show this code</summary><pre class="lua"><code>-- Read the record around zone base z into WIN and validate it. Returns true if it still looks like a Hive Lord.
+-- Armor never changes in a fight, so it is the fingerprint: default zone, then slots 0..37.
+local ARMOR = {5, 6, 10}
+for _ = 1, 13 do ARMOR[#ARMOR + 1] = 5 end
+for _ = 1, 7 do ARMOR[#ARMOR + 1] = 2 end
+ARMOR[#ARMOR + 1] = 6; ARMOR[#ARMOR + 1] = 6
+for _ = 1, 14 do ARMOR[#ARMOR + 1] = 5 end
+
+-- HP is only sanity-bounded: destroyed zones (even ones without constitution) go below zero.
+local function read_record(z)
+    if safe_read(z - WIN_LO, WIN_LEN, WIN) &lt; WIN_LEN then return false end
+    local zb = WIN_LO
+    if i32(WIN, zb + OFF_MARKER) ~= 0xFFFF then return false end
+    for i = 1, #ARMOR do
+        if i32(WIN, zb + OFF_ARMOR0 - 4 + (i - 1) * 4) ~= ARMOR[i] then return false end
+    end
+    for slot = 0, 37 do
+        local v = i32(WIN, zb + slot * 4)
+        if v &gt; MAXHP[slot] or v &lt; -(MAXCON[slot] + MAXHP[slot]) then return false end
+    end
+    return true
+end</code></pre></details></li><li><a class="loc" href="source.html#hud-a17">hive_lord_hud.lua lines 621–634</a> <b>Walking the hash table</b>: Read the whole key table and visit every (entity, index) pair. It does not compute the hash, so it does not need the multiplier the game uses.<details><summary>Show this code</summary><pre class="lua"><code>local function each_key(hs, fn)
+    local per = 0x10000 / 8
+    for first = 0, hs.cap - 1, per do
+        local n = math.min(per, hs.cap - first)
+        if safe_read(hs.keys + first * 8, n * 8, B8) &lt; n * 8 then return false end
+        local p, list = ffi.cast(&#x27;uint32_t*&#x27;, B8), {}
+        for i = 0, n - 1 do
+            local k, v = tonumber(p[i * 2]), tonumber(p[i * 2 + 1])
+            if k ~= hs.empty and k ~= 0 and v &lt; 0x100000 then list[#list + 1] = {k, v} end
+        end
+        for _, kv in ipairs(list) do if fn(kv[1], kv[2]) then return true end end
+    end
+    return true
+end</code></pre></details></li><li><a class="loc" href="source.html#fix-a39">plate_fix.lua lines 126–137</a> <b>The same fingerprint, plus plate-to-mask mapping</b>: The same 39 armour values recognise a Hive Lord; it also lists which model mask belongs to each plate, and the delay and retry limits.<details><summary>Show this code</summary><pre class="lua"><code>-- The Hive Lord&#x27;s armour values (default zone, then zones 0..37) never change in a fight: our fingerprint.
+local ARMOR = {5, 6, 10}
+for _ = 1, 13 do ARMOR[#ARMOR + 1] = 5 end
+for _ = 1, 7 do ARMOR[#ARMOR + 1] = 2 end
+ARMOR[#ARMOR + 1] = 6; ARMOR[#ARMOR + 1] = 6
+for _ = 1, 14 do ARMOR[#ARMOR + 1] = 5 end
+
+-- Plate zone -&gt; its model mask (GoreComponent) ; constitution 35000 for every plate.
+local PLATE_MASK = {}
+for k = 0, 5 do PLATE_MASK[7 - k], PLATE_MASK[14 - k] = 1 + 4 * k, 2 + 4 * k end
+local PLATE_CON = 35000
+local FIX_DELAY, FIX_TRIES, RETRY_S = 1.5, 3, 2</code></pre></details></li><li><a class="loc" href="source.html#fix-a41">plate_fix.lua lines 151–164</a> <b>The same hash-table walk</b>: Read the key table in chunks, skip empty slots, call fn for every (entity, index).<details><summary>Show this code</summary><pre class="lua"><code>local function each_key(keys, cap, fn)
+    local per = 0x10000 / 8
+    for first = 0, cap - 1, per do
+        local n = math.min(per, cap - first)
+        if safe_read(keys + first * 8, n * 8, BUF) &lt; n * 8 then return false end
+        local p, list = ffi.cast(&#x27;uint32_t*&#x27;, BUF), {}
+        for i = 0, n - 1 do
+            local k, v = tonumber(p[i * 2]), tonumber(p[i * 2 + 1])
+            if k ~= 0xFFFFFFFF and k ~= 0 and v &lt; 0x100000 then list[#list + 1] = {k, v} end
+        end
+        for _, kv in ipairs(list) do if fn(kv[1], kv[2]) then return true end end
+    end
+    return true
+end</code></pre></details></li></ul></div>
   <div class="takeaway"><b>Key points</b><ol>
     <li>After compiling, only offsets are left: “record +0x14 is main HP” is all the information there is.</li>
     <li>The game manages each kind of data in one place with a system, and uses a hash table to look up the record number from an entity ID.</li>
@@ -950,6 +1318,27 @@ records[6].main_hp -= 500;   // enemy #6 loses 500 HP</pre></div>
       <li>We extracted the animation state machine; the later emerge warning relies on its state names.</li>
     </ul>
     But FileDiver can only answer “what does the game define?”, not “where in memory is this Hive Lord's record right now?”.</div>
+  <div class="srcbox"><b>In the source</b><ul><li><a class="loc" href="source.html#hud-a7">hive_lord_hud.lua lines 86–106</a> <b>Design values decoded with FileDiver</b>: Max HP and constitution for all 38 zones, all from the health component decoded offline. These numbers later validate the record in memory.<details><summary>Show this code</summary><pre class="lua"><code>-- =========================================================================
+-- Hive Lord data (tools/research/hive_lord_health.json)
+-- =========================================================================
+H.MAIN_HEALTH_MAX = 150000
+H.GROUPS = {
+    {label = &#x27;HEAD&#x27;,  color = {255, 230, 140, 40},  zones = {
+        {slot = 0, hp = 150000}, {slot = 1, hp = 150000}, {slot = 22, hp = 10000}, {slot = 23, hp = 10000}}},
+    {label = &#x27;SPINE&#x27;, con = 35000, color = {255, 230, 200, 60},  zones = {
+        {slot = 2, hp = 15000}, {slot = 3, hp = 15000}, {slot = 4, hp = 15000}, {slot = 5, hp = 15000},
+        {slot = 6, hp = 15000}, {slot = 7, hp = 15000}, {slot = 8, hp = 20000}, {slot = 9, hp = 15000},
+        {slot = 10, hp = 15000}, {slot = 11, hp = 15000}, {slot = 12, hp = 15000}, {slot = 13, hp = 15000},
+        {slot = 14, hp = 15000}}},
+    {label = &#x27;BODY&#x27;,  color = {255, 220, 70, 60},   zones = {
+        {slot = 15, hp = 150000}, {slot = 16, hp = 150000}, {slot = 17, hp = 150000}, {slot = 18, hp = 150000},
+        {slot = 19, hp = 150000}, {slot = 20, hp = 150000}, {slot = 21, hp = 150000}}},
+    {label = &#x27;FINS&#x27;,  color = {255, 120, 170, 210}, zones = {
+        {slot = 24, hp = 5000}, {slot = 25, hp = 5000}, {slot = 26, hp = 5000}, {slot = 27, hp = 5000},
+        {slot = 28, hp = 5000}, {slot = 29, hp = 5000}, {slot = 30, hp = 5000}, {slot = 31, hp = 5000},
+        {slot = 32, hp = 5000}, {slot = 33, hp = 5000}, {slot = 34, hp = 5000}, {slot = 35, hp = 5000},
+        {slot = 36, hp = 5000}, {slot = 37, hp = 5000}}},
+}</code></pre></details></li></ul></div>
   <div class="takeaway"><b>Key points</b><ol>
     <li>Archives have a fixed format and names are hashes, turned back into names with the community's name list.</li>
     <li>Design values and struct definitions are available offline, and the type library is more reliable than a tool's built-in structs.</li>
@@ -1019,6 +1408,16 @@ records[6].main_hp -= 500;   // enemy #6 loses 500 HP</pre></div>
       <li><b>v9 failed, v10 fixed it</b>: using “main HP = 150000” as the anchor meant the record was lost as soon as the Hive Lord took damage; we switched to the armour values, which never change, as the fingerprint.</li>
     </ul>
     This “search the heap” method works, but it has a deeply hidden problem (Chapter 11).</div>
+  <div class="srcbox"><b>In the source</b><ul><li><a class="loc" href="source.html#hud-a5">hive_lord_hud.lua lines 51–60</a> <b>A trace of being bundled with Recon</b>: If the Recon research mod is present, lines go into its log. The first 69 HUD builds were packed together with Recon.<details><summary>Show this code</summary><pre class="lua"><code>local function writer(line)
+    local R = recon()
+    H.recent[#H.recent + 1] = line
+    if #H.recent &gt; 3 then table.remove(H.recent, 1) end
+    line = &#x27;[HiveLordHud] &#x27; .. line
+    if R and R.write then R.write(line) return end
+    print(line)
+    local f = open_own_log()
+    if f then pcall(function() f:write(line, &#x27;\n&#x27;); f:flush() end) end
+end</code></pre></details></li></ul></div>
   <div class="takeaway"><b>Key points</b><ol>
     <li>The way to observe the game under anti-cheat is to make the observation tool a mod and read from inside the game.</li>
     <li>Control what to check with a command file, write results to a log, and run one round per game restart.</li>
@@ -1196,6 +1595,50 @@ apply_damage(g_health_system, entity, /* ... */);</pre></div>
   </svg>
   </div>
   <div class="hudlog"><b>Hive Lord HUD at this point</b> (Oct 5, v83): static analysis found that every health function loads the health system from the same global variable, <code>game.dll + 0x3326688</code> (587 places in game.dll read it). From then on the HUD stopped searching the heap and instead follows the fixed path “base + RVA → health system → hash table → index → +0x14”. This change also fixed the problem from Chapter 11.</div>
+  <div class="srcbox"><b>In the source</b><ul><li><a class="loc" href="source.html#hud-a15">hive_lord_hud.lua lines 578–599</a> <b>The health system found by reverse engineering</b>: This comment records Chapter 10&#x27;s result: how the damage function 0x9235F0 looks the table up, the global&#x27;s RVA, the key-table and record-array offsets, and why a heap search can follow a frozen stale copy.<details><summary>Show this code</summary><pre class="lua"><code>-- =========================================================================
+-- The live HP record straight from the game&#x27;s health system (a game.dll global; RVA of build 25480438).
+-- The damage code (game.dll 0x9235F0) indexes it the same way: hash of (entity u32, index u32) at +0x1030,
+-- capacity at +0x1038, empty key at +0x103C, runtime records at +0x1058, 0x1B8 bytes each; zone HP at +0xF8
+-- (our Z), main HP at +0x14. The game reallocates that array and the old copies stay readable and still pass
+-- our fingerprint, so a heap scan can end up following a frozen copy. Going through the global always lands on the
+-- live one; the heap scan is only the fallback when the global cannot be read (e.g. after a game update).
+-- =========================================================================
+do
+local HEALTH_SYS_RVA, HS_KEYS, HS_CAP, HS_EMPTY, HS_RECS = 0x3326688, 0x1030, 0x1038, 0x103C, 0x1058
+local REC_STRIDE, REC_Z = 0x1B8, 0xF8
+local B8 = ffi.new(&#x27;uint8_t[?]&#x27;, 0x10000)
+local function u32(addr)
+    if safe_read(addr, 4, B8) &lt; 4 then return nil end
+    return tonumber(ffi.cast(&#x27;uint32_t*&#x27;, B8)[0])
+end
+local function ptr(addr)
+    if not addr or safe_read(addr, 8, B8) &lt; 8 then return nil end
+    local p = tonumber(ffi.cast(&#x27;uint64_t*&#x27;, B8)[0])
+    if p &lt; 0x10000 or p &gt; USER_END then return nil end
+    return p
+end</code></pre></details></li><li><a class="loc" href="source.html#fix-a34">plate_fix.lua lines 4–14</a> <b>The bug, found by reverse engineering</b>: Zone state (collision) is always synced, but the gore that hides the model only runs on the machine that resolved the killing hit. The addresses in the comment were found with the methods of Chapter 10.<details><summary>Show this code</summary><pre class="lua"><code>-- A Hive Lord plate that is destroyed (zone HP -35000) always loses its collider and its crack overlay: that is zone
+-- state, synced to everyone (game.dll 0x925F10). The plate model itself is only hidden by gore (0x9057D0 -&gt; 0x903C70),
+-- which runs only on the machine that resolves the killing hit, and only if that hit passes gore&#x27;s checks. When
+-- gore never comes (seen on a client when a teammate&#x27;s Eagle killed the plate), the plate stays drawn - looking
+-- intact again - while shots pass through it to the flesh behind.
+--
+-- This module watches every Hive Lord through the game&#x27;s own tables and, when a plate has been dead for
+-- FIX_DELAY seconds and is still drawn, writes the same &quot;hidden&quot; override bit that gore would have written. The
+-- game then updates the drawn mask itself. It only changes what this player sees: no damage, collision, network
+-- or code is touched. Every read/write goes through Read/WriteProcessMemory, so a stale address fails instead of
+-- crashing. RE notes: tools/research/hive_lord_armor_break.md. Globals are RVAs of build 25480438.</code></pre></details></li><li><a class="loc" href="source.html#fix-a38">plate_fix.lua lines 112–124</a> <b>Table layouts read from assembly</b>: The globals, key tables and entry layouts of the health and visibility-mask systems, all read out of game.dll&#x27;s assembly.<details><summary>Show this code</summary><pre class="lua"><code>-- ---------- game tables ----------
+-- Health system (game.dll+0x3326688): keys (entity u32, index u32) @+0x1030, capacity @+0x1038, empty key @+0x103C,
+--   records @+0x1058, 0x1B8 bytes each: zone HP i32[38] @+0xF8, armor i32[39] @+0x5C, 0xFFFF marker @+0x190.
+-- Visibility-mask system (game.dll+0x3326708): keys @+0x18, capacity @+0x20, entries @+0x38 (24 bytes: applied
+--   mask @+0, override bits @+8, touched bits @+16), base masks @+0x40 (8 bytes each).
+-- The setters (0x721D20 &amp; co.) push to the material at once only while the unit&#x27;s render record is live
+-- ([rec+0x14] bit 0); then they write the base mask. Otherwise they only write override/touched, and the updater
+-- 0x721680 later pushes (base &amp; ~touched) | (override &amp; touched) and keeps that in the entry&#x27;s applied mask.
+-- So &quot;drawn&quot; must not be judged by the base mask alone (the non-live path never changes it): a plate counts as
+-- hidden when either the base or the applied mask has its bit. Every try logs all four masks.
+local HEALTH_RVA, VIS_RVA = 0x3326688, 0x3326708
+local REC_STRIDE = 0x1B8
+local Z_OFF, ARMOR_OFF, MARKER_OFF = 0xF8, 0x5C, 0x190</code></pre></details></li></ul></div>
   <div class="takeaway"><b>Key points</b><ol>
     <li>A packed program has to be dumped from memory in its unpacked form before you can analyse it.</li>
     <li>In assembly, <code>[register + offset]</code> is a struct field, and <code>[rip + X]</code> is a global variable.</li>
@@ -1229,6 +1672,147 @@ apply_damage(g_health_system, entity, /* ... */);</pre></div>
   <h3>Time budget</h3>
   <p>Searching the heap means reading several GB of memory; doing it all at once would freeze that frame for several seconds. So you split it into small pieces and do a little each frame. The HUD first spent 8 ms per frame, which cut FPS in half at 130 FPS; later it was lowered to 4 ms. After switching to going straight through the global variable, the normal per-frame cost dropped to a fraction of a millisecond.</p>
   <div class="hudlog"><b>Hive Lord HUD at this point</b> (Oct 5): a player reported “the plate is already blown off, but the panel still shows 20-something %.” The log showed that during one re-search, the HUD's heap search had picked up a <b>stale copy</b>, and the value didn't change for the next 130 seconds. This was the direct reason v83 switched to starting from the global variable (Chapter 10). After the change, it only needs to find the record once per fight, and it has never frozen since.</div>
+  <div class="srcbox"><b>In the source</b><ul><li><a class="loc" href="source.html#hud-a11">hive_lord_hud.lua lines 520</a> <b>Time budget</b>: The heap search may spend at most 4 ms per frame. It used to be 8 ms, which halved the FPS at about 130 FPS.<details><summary>Show this code</summary><pre class="lua"><code>local SLICE_S, CHUNK = 0.004, 1024 * 1024   -- 4 ms per frame (was 8: halved the FPS while it ran at ~130 FPS)</code></pre></details></li><li><a class="loc" href="source.html#hud-a13">hive_lord_hud.lua lines 532–542</a> <b>Every read goes through ReadProcessMemory</b>: The comment says it: heap memory can be freed between the check and the read, and a raw read would crash; ReadProcessMemory just fails.<details><summary>Show this code</summary><pre class="lua"><code>-- All reads go through ReadProcessMemory on our own process: heap memory can be freed by another
+-- thread between a VirtualQuery check and a raw pointer read (that segfaulted in testing); RPM just fails.
+local SELF = k32.GetCurrentProcess()
+local NREAD = ffi.new(&#x27;size_t[1]&#x27;)
+local SCRATCH = ffi.new(&#x27;uint8_t[?]&#x27;, CHUNK)
+local WIN = ffi.new(&#x27;uint8_t[?]&#x27;, WIN_LEN)
+
+local function safe_read(addr, n, dst)
+    if k32.ReadProcessMemory(SELF, ffi.cast(&#x27;const void*&#x27;, addr), dst, n, NREAD) == 0 then return 0 end
+    return tonumber(NREAD[0])
+end</code></pre></details></li><li><a class="loc" href="source.html#hud-a18">hive_lord_hud.lua lines 663–689</a> <b>The fallback</b>: Take the fixed health-system path first; only if the global can&#x27;t be read (for example after a game update) fall back to the slower heap search, and log why.<details><summary>Show this code</summary><pre class="lua"><code>function H.locator_start()
+    local list, why = H.direct_find()
+    if list then
+        H.loc = {phase = &#x27;done&#x27;, direct = true, cands = {}, adopted = nil, t0 = now_s(), scanned = 0, anchors = 0, last_poll = -1e9}
+        local ids = {}
+        for _, c in ipairs(list) do
+            H.loc.cands[#H.loc.cands + 1] = {z = c.z, ent = c.ent, idx = c.idx, changed = -1e9}
+            ids[#ids + 1] = string.format(&#x27;entity 0x%X index %d&#x27;, c.ent, c.idx)
+        end
+        if list[1] then
+            writer(&#x27;HP record found via the health system: &#x27; .. table.concat(ids, &#x27;, &#x27;))
+            H.direct_waiting = nil
+        else
+            H.loc.retry_at = now_s() + 3
+            if not H.direct_waiting then writer(&#x27;health system readable, no Hive Lord record yet - retrying every 3s&#x27;) end
+            H.direct_waiting = true
+        end
+        return
+    end
+    if not H.direct_fail_logged then
+        writer(&#x27;direct HP lookup unavailable (&#x27; .. tostring(why) .. &#x27;) - using the heap scan&#x27;)
+        H.direct_fail_logged = true
+    end
+    H.loc = {phase = &#x27;scan&#x27;, addr = 0x10000, rbase = nil, rend = nil, off = 0,
+             scanned = 0, anchors = 0, cands = {}, adopted = nil, t0 = now_s()}
+    writer(&#x27;heap scan started (time-sliced, ~4ms/frame)&#x27;)
+end</code></pre></details></li><li><a class="loc" href="source.html#hud-a19">hive_lord_hud.lua lines 692–706</a> <b>Don&#x27;t find your own copy</b>: The mod&#x27;s own buffers hold copies of what it just read; the search must exclude them or it finds itself.<details><summary>Show this code</summary><pre class="lua"><code>local OWN = {
+    {tonumber(ffi.cast(&#x27;uintptr_t&#x27;, SCRATCH)), CHUNK},
+    {tonumber(ffi.cast(&#x27;uintptr_t&#x27;, WIN)), WIN_LEN},
+}
+
+local function test_anchor(L, hit)
+    for _, r in ipairs(OWN) do
+        if hit &gt;= r[1] - WIN_LEN and hit &lt; r[1] + r[2] then return end
+    end
+    L.anchors = L.anchors + 1
+    if #L.cands &lt; 8 and read_record(hit) then
+        for _, c in ipairs(L.cands) do if c.z == hit then return end end
+        L.cands[#L.cands + 1] = {z = hit, sig = signature(), changed = -1e9}
+    end
+end</code></pre></details></li><li><a class="loc" href="source.html#hud-a20">hive_lord_hud.lua lines 710–745</a> <b>Time-sliced search</b>: Each frame searches a small piece and stops when its time is up; the next frame continues.<details><summary>Show this code</summary><pre class="lua"><code>local function scan_step(L)
+    local t_end = clock() + SLICE_S
+    while clock() &lt; t_end do
+        if L.rbase == nil then
+            if L.addr &gt;= USER_END or k32.VirtualQuery(ffi.cast(&#x27;const void*&#x27;, L.addr), mbi, MBI_SIZE) == 0 then
+                return true
+            end
+            local m = mbi[0]
+            local rb, rs = tonumber(ffi.cast(&#x27;uintptr_t&#x27;, m.BaseAddress)), tonumber(m.RegionSize)
+            if rb + rs &lt;= L.addr then return true end
+            L.addr = rb + rs
+            if m.State == MEM_COMMIT and m.Type == MEM_PRIVATE and m.Protect == PAGE_READWRITE then
+                L.rbase, L.rend, L.off = rb, rb + rs, 0
+            end
+        else
+            local take = math.min(CHUNK, L.rend - L.rbase - L.off)
+            local cbase = L.rbase + L.off
+            local got = safe_read(cbase, take, SCRATCH)
+            -- Compare aligned int32s in place: building a Lua string would leave stale copies of the
+            -- record in the heap for later scans to find.
+            local ok = got == take
+            if ok then
+                local words = ffi.cast(&#x27;const int32_t*&#x27;, SCRATCH)
+                for i = 0, got / 4 - 1 do
+                    if words[i] == 6 and words[i + 1] == 10 and i + 1 &lt; got / 4 then
+                        test_anchor(L, cbase + i * 4 - OFF_ARMOR0)
+                    end
+                end
+            end
+            L.off = L.off + take
+-- … (36 lines in total; see the source page for all of it)</code></pre></details></li><li><a class="loc" href="source.html#hud-a21">hive_lord_hud.lua lines 775–878</a> <b>Re-validate every second</b>: Once a second, find the record again by entity and validate it; if it moved or was freed, search again instead of drifting to some other idle record.<details><summary>Show this code</summary><pre class="lua"><code>function H.read_hp()
+    local hp = {main = nil, zones = {}}
+    local L = H.loc
+    if not L then return hp end
+    if L.phase == &#x27;done&#x27; and not L.adopted and L.retry_at and now_s() &gt;= L.retry_at then
+        H.locator_start()
+        return hp
+    end
+    if L.phase ~= &#x27;done&#x27; or not L.cands[1] then return hp end
+    local t = now_s()
+    if t - L.last_poll &gt;= 1 then
+        L.last_poll = t
+        local keep = {}
+        for _, c in ipairs(L.cands) do
+            if L.direct then c.z = H.direct_z(c, true) end
+            if c.z and read_record(c.z) then
+                local sig = signature()
+                if sig ~= c.sig then c.sig, c.changed = sig, t end
+                keep[#keep + 1] = c
+            end
+        end
+        L.cands = keep
+        if not keep[1] then
+            writer(&#x27;HP records moved or freed - rescanning&#x27;)
+            H.locator_start()
+            return hp
+        end
+        -- The Hive Lord being fought is the record whose HP changed most recently.
+        local still_valid = false
+        for _, c in ipairs(keep) do if c == L.adopted then still_valid = true end end
+-- … (104 lines in total; see the source page for all of it)</code></pre></details></li><li><a class="loc" href="source.html#fix-a35">plate_fix.lua lines 51–87</a> <b>ReadProcessMemory here too</b>: &quot;Never dereference raw pointers: the game frees and moves these tables.&quot; The same safe reads as the HUD.<details><summary>Show this code</summary><pre class="lua"><code>-- ---------- memory access (never dereference raw pointers: the game frees and moves these tables) ----------
+pcall(ffi.cdef, &#x27;void* GetModuleHandleA(const char* name);&#x27;)
+pcall(ffi.cdef, &#x27;void* GetCurrentProcess(void);&#x27;)
+pcall(ffi.cdef, &#x27;int ReadProcessMemory(void* process, const void* addr, void* buf, size_t size, size_t* read);&#x27;)
+pcall(ffi.cdef, &#x27;int WriteProcessMemory(void* process, void* addr, const void* buf, size_t size, size_t* written);&#x27;)
+pcall(ffi.cdef, &#x27;int QueryPerformanceCounter(int64_t* c); int QueryPerformanceFrequency(int64_t* f);&#x27;)
+local k32 = ffi.load(&#x27;kernel32&#x27;)
+local SELF = k32.GetCurrentProcess()
+local NIO = ffi.new(&#x27;size_t[1]&#x27;)
+local BUF = ffi.new(&#x27;uint8_t[?]&#x27;, 0x10000)
+local REC = ffi.new(&#x27;uint8_t[?]&#x27;, 0x1B8)
+local WB = ffi.new(&#x27;uint8_t[1]&#x27;)
+local USER_END = 0x7FFFFFFFFFFF
+
+local function safe_read(addr, n, dst)
+    if k32.ReadProcessMemory(SELF, ffi.cast(&#x27;const void*&#x27;, addr), dst, n, NIO) == 0 then return 0 end
+    return tonumber(NIO[0])
+end
+local function u32(addr)
+    if safe_read(addr, 4, BUF) &lt; 4 then return nil end
+    return tonumber(ffi.cast(&#x27;uint32_t*&#x27;, BUF)[0])
+end
+local function ptr(addr)
+    if not addr or safe_read(addr, 8, BUF) &lt; 8 then return nil end
+    local p = tonumber(ffi.cast(&#x27;uint64_t*&#x27;, BUF)[0])
+    if p &lt; 0x10000 or p &gt; USER_END then return nil end
+    return p
+end
+local function mask(addr)
+    if safe_read(addr, 8, BUF) &lt; 8 then return nil end
+-- … (37 lines in total; see the source page for all of it)</code></pre></details></li></ul></div>
   <div class="takeaway"><b>Key points</b><ol>
     <li>Mods for players should always use ReadProcessMemory: a bad address just fails, it doesn't crash.</li>
     <li>Freed memory is still readable, so a search may find a frozen stale copy; starting from the game's own pointers is the reliable way.</li>
@@ -1277,6 +1861,94 @@ apply_damage(g_health_system, entity, /* ... */);</pre></div>
   <h3>Working with other mods: the settings menu</h3>
   <p>Mod Options Menu is also a mod loaded through the Loader. It puts a global <code>ModOptionsMenu</code> table in place; other mods can call <code>register_option</code> to register settings and use <code>get</code> to read values. <b>Because</b> the load order between mods is not guaranteed — <b>so</b> the HUD doesn't look for it at load time; it looks for it inside update, and only registers once it finds it. If it isn't installed, the HUD uses the values from its config file.</p>
   <div class="hudlog"><b>Hive Lord HUD at this point</b> (Oct 4, v72–v78) moved all its settings into Mod Options Menu and removed all hotkeys. Along the way we learned that menu changes only take effect when you press the game's “Apply”, and pressing Esc throws them away — so “preview” became a button-style option: after you apply it, it shows for 15 seconds, then switches the option back off by itself. (Oct 7, v116) After the feature freeze came a big cleanup: from 3,568 lines down to about 2,600, with the research diagnostics moved into a separate development mod.</div>
+  <div class="srcbox"><b>In the source</b><ul><li><a class="loc" href="source.html#hud-a1">hive_lord_hud.lua lines 6–14</a> <b>Section index</b>: The order of the whole file, which is exactly the table in Chapter 12: data, detection, HP locator, zone tracking, GUI, per-frame worker, settings, install.<details><summary>Show this code</summary><pre class="lua"><code>-- Sections (in file order):
+--   Hive Lord data      zone layout, max HP / constitution per zone (from the unpacked HealthComponent)
+--   Detection           finding the Hive Lord unit, its distance, surfacing and the emerge / pre-emerge states
+--   Live HP locator     the HP record via the game&#x27;s health system (heap scan only as a fallback)
+--   Zone tracking       per-frame zone bookkeeping; host state events and the &#x27;&lt;&#x27; upper-bound marker
+--   GUI                 prims and groups: status text, armour panel (poly / pixel), tag, warning, preview, boss bar
+--   Per-frame worker    world selection, gui lifetime, render()
+--   Settings            cfg file and the Bingus Mod Options Menu rows
+--   Install             the wrapper around the engine&#x27;s global update()</code></pre></details></li><li><a class="loc" href="source.html#hud-a3">hive_lord_hud.lua lines 24–26</a> <b>Singleton guard</b>: If it has already been loaded, stop right here. The same global table also holds the whole HUD state.<details><summary>Show this code</summary><pre class="lua"><code>if rawget(_G, &#x27;HD2HiveLordHud&#x27;) then return end
+local H = {version = 121, release = &#x27;v3&#x27;, armed = false, faults = 0, frame = 0}
+rawset(_G, &#x27;HD2HiveLordHud&#x27;, H)</code></pre></details></li><li><a class="loc" href="source.html#hud-a30">hive_lord_hud.lua lines 2251–2331</a> <b>The per-frame worker</b>: Look for units every 2 s, read HP every frame, handle death and the corpse, update distance and animation state, then render, and time itself.<details><summary>Show this code</summary><pre class="lua"><code>function H.update()
+    H.frame = (H.frame or 0) + 1
+    -- Lua update rate (the overlay can only move this often), logged every 30 s while a Hive Lord is tracked.
+    local tr = now_s()
+    H.rate_t0 = H.rate_t0 or tr
+    H.rate_n = (H.rate_n or 0) + 1
+    if tr - H.rate_t0 &gt;= 30 then
+        local c = H.cost
+        if H.live.unit and c then
+            local normal_n = c.n - c.scan_n
+            writer(string.format(&#x27;update rate: %.0f Hz | HUD cost: avg %.3f ms, max %.2f ms per frame%s&#x27;, H.rate_n / (tr - H.rate_t0),
+                normal_n &gt; 0 and (c.sum - c.scan_sum) / normal_n or 0, c.max,
+                c.scan_n &gt; 0 and string.format(&#x27; | during HP search: %d frames, avg %.2f ms&#x27;, c.scan_n, c.scan_sum / c.scan_n) or &#x27;&#x27;))
+        end
+        if c then c.sum, c.max, c.n, c.scan_sum, c.scan_n = 0, 0, 0, 0, 0 end
+        H.rate_t0, H.rate_n = tr, 0
+    end
+    local L, t = H.live, now_s()
+    t_now = t
+    -- A dead world already took its gui with it: forget, never destroy.
+    if H.ui.gui ~= nil and not world_is_live(H.ui.world) then
+        H.ui.gui, H.ui.world, H.grp = nil, nil, {}
+    end
+
+    if t - L.last_scan &gt;= 2 then
+        L.last_scan = t
+        local worlds = attempt(App.worlds)
+        if type(worlds) ~= &#x27;table&#x27; then return end
+        local u, _, uname = H.find_hive_lord(worlds, t)
+        local a = u and (unit_addr(u) or u)
+-- … (81 lines in total; see the source page for all of it)</code></pre></details></li><li><a class="loc" href="source.html#hud-a31">hive_lord_hud.lua lines 2510–2559</a> <b>Working with another mod: the options menu</b>: Mod Options Menu is a global API provided by another mod. The HUD only looks for it inside update (load order isn&#x27;t guaranteed), registers its rows when found, and reads the values every 10 frames.<details><summary>Show this code</summary><pre class="lua"><code>function H.options_register(M)
+    local function reg(id, spec)
+        local ok, done, why = pcall(M.register_option, id, spec)
+        if not (ok and done) then writer(&#x27;mod options: register &#x27; .. id .. &#x27; failed: &#x27; .. tostring(ok and why or done)) end
+        return ok and done
+    end
+    H.option_ok = reg(OPTION_ID, {
+        type = &#x27;toggle&#x27;, mod = &#x27;Hive Lord HUD&#x27;, label = &#x27;Enable Hive Lord HUD&#x27;, default = true,
+        description = &#x27;Turns the whole Hive Lord HUD on or off: HP bar, armor panel, tag, distance and &#x27;
+            .. &#x27;emerge warning. Off stops all of its work.&#x27;})
+    if not H.option_ok then return end
+    local n = 0
+    for _, o in ipairs(H.OPTIONS) do
+        local spec = {type = o.type, mod = &#x27;Hive Lord HUD&#x27;, label = o.label, description = o.description, gap = o.gap,
+                      default = o.default, choices = o.choices, step = o.step}
+        if o.type == &#x27;choice&#x27; then spec.default = to_menu(o, o.default) end
+        if o.type == &#x27;slider&#x27; then spec.min, spec.max = SIZE_RANGE[o.key][1], SIZE_RANGE[o.key][2] end
+        o.ok = reg(H.opt_id(o), spec)
+        if o.ok then n = n + 1 end
+    end
+    writer(string.format(&#x27;mod options: registered %s + %d of %d settings&#x27;, OPTION_ID, n, #H.OPTIONS))
+    pcall(M.set, &#x27;hivelordhud.preview&#x27;, false)     -- preview is per session: never comes back on by itself
+    -- cfg.menu: 0 = menu never seen (copy every saved setting into it); 1, 2 = older menu layouts (copy the rows
+    -- added since, see `since`); 3 = the menu is the source.
+    if (H.cfg.menu or 0) &lt; 3 then
+        for _, o in ipairs(H.OPTIONS) do
+            if o.ok and (o.since or 1) &gt; (H.cfg.menu or 0) then pcall(M.set, H.opt_id(o), to_menu(o, H.cfg[o.key])) end
+        end
+        writer(&#x27;mod options: copied saved settings into the menu (from cfg level &#x27; .. tostring(H.cfg.menu) .. &#x27;)&#x27;)
+        H.cfg.menu = 3
+-- … (50 lines in total; see the source page for all of it)</code></pre></details></li><li><a class="loc" href="source.html#fix-a43">plate_fix.lua lines 287–304</a> <b>A one-row options menu</b>: With Mod Options Menu present, register one toggle and read it every 10 frames; without it, the fix is always on.<details><summary>Show this code</summary><pre class="lua"><code>function M.poll_option()
+    local MOM = rawget(_G, &#x27;ModOptionsMenu&#x27;)
+    if type(MOM) ~= &#x27;table&#x27; then return end
+    if not M.option_tried then
+        M.option_tried = true
+        local ok, done = pcall(MOM.register_option, OPTION_ID, {
+            type = &#x27;toggle&#x27;, mod = &#x27;Hive Lord Plate Fix&#x27;, label = &#x27;Fix dead plates that stay on&#x27;, default = true,
+            description = &quot;A plate destroyed by damage your game did not resolve itself (e.g. a teammate&#x27;s Eagle) loses its collision but can stay drawn, looking intact. When a plate has been at 0% for 1.5 s and is still drawn, hide it the way the game would have. Only changes what you see.&quot;})
+        M.option_ok = ok and done
+        if not M.option_ok then writer(&#x27;mod options: register failed&#x27;) end
+    end
+    if not M.option_ok or M.frame % 10 ~= 0 then return end
+    local ok, v = pcall(MOM.get, OPTION_ID)
+    if ok and type(v) == &#x27;boolean&#x27; and v ~= M.enabled then
+        M.enabled = v
+        writer(&#x27;fix &#x27; .. (v and &#x27;enabled&#x27; or &#x27;disabled&#x27;) .. &#x27; from Mod Options Menu&#x27;)
+    end
+end</code></pre></details></li></ul></div>
   <div class="takeaway"><b>Key points</b><ol>
     <li>Mod skeleton: singleton guard → environment check → wrap update (pcall + disarm) → per-frame work.</li>
     <li>Each rule matches one of the earlier principles, and most were added after a crash.</li>
@@ -1305,6 +1977,17 @@ apply_damage(g_health_system, entity, /* ... */);</pre></div>
     <li><b>You can see the screen offline too</b>: record the <code>Gui.rect</code> and <code>Gui.text</code> calls the mod makes, draw them as an image with Python, and you can check the layout before going in-game. The Hive Lord HUD's showcase images and mod icon were made this way.</li>
   </ul>
   <div class="hudlog"><b>Hive Lord HUD at this point</b> has dozens of test scripts (<code>test_v83.py</code>, <code>test_v108.py</code>…), and most versions record “how many mutants were killed”. They caught plenty of bugs that would have broken things in-game, for example: using a table before it was defined (the mod would just disarm in the game), and a diagnostics buffer mistakenly accepted as an HP record (it passed the fingerprint check too). We also hit a pitfall in the tests themselves: a test read and wrote the <b>real</b> config file and changed the player's settings, so after that every test was redirected to a temp folder.</div>
+  <div class="srcbox"><b>In the source</b><ul><li><a class="loc" href="source.html#fix-a37">plate_fix.lua lines 100–110</a> <b>Seams for the tests</b>: Both the clock and the game.dll base can be replaced by tests, so offline tests can run the module against fake memory structures.<details><summary>Show this code</summary><pre class="lua"><code>function M.now()                                   -- seconds; tests replace this
+    k32.QueryPerformanceCounter(QB)
+    return tonumber(QB[0]) / QFREQ
+end
+
+function M.game_base()
+    if M.GAME_BASE then return M.GAME_BASE end      -- tests
+    local ok, m = pcall(function() return tonumber(ffi.cast(&#x27;uintptr_t&#x27;, ffi.C.GetModuleHandleA(&#x27;game.dll&#x27;))) end)
+    if ok and m and m ~= 0 then return m end
+    return nil
+end</code></pre></details></li></ul></div>
   <div class="takeaway"><b>Key points</b><ol>
     <li>A mod interacts with the game through only three channels; replace them all with fakes and it runs offline.</li>
     <li>Stubs should copy the game's strictness and bad habits, and decoys should be good enough to fool careless validation.</li>
@@ -1389,6 +2072,37 @@ print('hi')</textarea>
     <li>The Loader itself is also tied to the game version; after a big update, wait for the Loader to update first.</li>
   </ul>
   <div class="hudlog"><b>Hive Lord HUD at this point</b> added the “&lt;” marker to be honest about multiplayer limits: after joining mid-fight, or after finding that the host has corrected our numbers, plate % and main HP get a “&lt;” prefix, meaning “at most this much left”. We also looked into whether the host could send the real HP. Conclusion: the path doesn't work, and sending network requests would affect other people's games, so we don't do it.</div>
+  <div class="srcbox"><b>In the source</b><ul><li><a class="loc" href="source.html#hud-a22">hive_lord_hud.lua lines 880–944</a> <b>Who changed this zone?</b>: Compare zone states every frame. HP landing exactly on -1 or -constitution while main HP did not drop means a host event; from the first host correction on, plate % get a &#x27;&lt;&#x27;.<details><summary>Show this code</summary><pre class="lua"><code>-- =========================================================================
+-- Zone tracking
+-- =========================================================================
+-- Per-frame zone bookkeeping for H.state_diag (last zone HP, last main HP), plus one log line for a big one-frame main
+-- HP drop or the drop to 0 at death (the host&#x27;s death event snaps a client&#x27;s main HP to 0). Research logging (per-
+-- second zone changes, raw record dumps, late-join hit logs) lives in the optional diag module (hive_lord_diag.lua).
+function H.track_zones(L, hp)
+    local t = now_s()
+    local d = L.diag
+    local id = L.adopted.ent or L.adopted.z     -- the direct lookup&#x27;s address moves with the array; the entity doesn&#x27;t
+    if not d or d.id ~= id then
+        d = {id = id, last = {}}
+        L.diag = d
+        for slot = 0, 37 do d.last[slot] = hp.zones[slot] end
+        return
+    end
+    H.state_diag(d, hp, t)
+    if hp.main and d.last_main and (d.last_main - hp.main &gt;= 8000 or (hp.main == 0 and d.last_main &gt; 0)) then
+        writer(string.format(&#x27;MAIN JUMP t=%.1f: %d -&gt; %d in one frame (drop %d)&#x27;, t, d.last_main, hp.main, d.last_main - hp.main))
+    end
+    d.last_main = hp.main
+    for slot = 0, 37 do
+        local v = hp.zones[slot]
+        if v ~= nil then d.last[slot] = v end
+    end
+end
+
+-- Who changed a zone&#x27;s state? Our machine only resolves the hits it simulates; the host sends zone-state
+-- events, which the state machine applies with HP = min(HP, -1) (cracked) or min(HP, -constitution) (dead).
+-- So: a state change that lands HP on exactly -1 / -constitution in a frame where our main HP did not drop came from
+-- … (65 lines in total; see the source page for all of it)</code></pre></details></li></ul></div>
   <div class="takeaway"><b>Key points</b><ol>
     <li>A client mod only sees data on its own computer and can't change what the host decides.</li>
     <li>Displayed numbers should honestly mark their uncertainty.</li>
@@ -1459,6 +2173,45 @@ print('hi')</textarea>
     <div class="card"><h4>Engine call rules</h4><ul><li>Before every call, confirm the world is still alive (<code>world_is_live</code>)</li><li>Call <code>Unit.alive(u)</code> before calling anything on a unit</li><li>Never touch the Hive Lord's corpse after it dies</li><li>Never call <code>stingray.Network.*</code> (it makes the engine terminate immediately)</li></ul></div>
   </div>
   <div class="hudlog"><b>Hive Lord HUD at this point</b> follows exactly the design principles of this chapter: the HUD only reads data; Plate Fix only writes one bit saying “should this plate be drawn”, and it's a value the game itself would write anyway; neither one changes code, sends network packets, or affects other players.</div>
+  <div class="srcbox"><b>In the source</b><ul><li><a class="loc" href="source.html#fix-a36">plate_fix.lua lines 88–96</a> <b>The only write: one byte</b>: Read the byte, OR in one bit, write back a single byte, keeping the window against the game&#x27;s own writes tiny. The value is the one the game&#x27;s gore would write.<details><summary>Show this code</summary><pre class="lua"><code>-- OR one bit into the byte that holds it: a single-byte write keeps the window against the game&#x27;s own writes tiny.
+local function set_bit(addr, bit)
+    local a = addr + math.floor(bit / 8)
+    if safe_read(a, 1, WB) &lt; 1 then return false end
+    local v = bitlib.bor(WB[0], bitlib.lshift(1, bit % 8))
+    if v == WB[0] then return true end
+    WB[0] = v
+    return k32.WriteProcessMemory(SELF, ffi.cast(&#x27;void*&#x27;, a), WB, 1, NIO) ~= 0
+end</code></pre></details></li><li><a class="loc" href="source.html#fix-a42">plate_fix.lua lines 225–266</a> <b>When it writes</b>: If the sanity check fails (masks 32 and 33 must be hidden), nothing is written. Only when a plate has been destroyed for 1.5 s and both the base and applied masks still show it is the hide bit written; at most 3 tries, each logged.<details><summary>Show this code</summary><pre class="lua"><code>function M.check(L, t)
+    local rec = health_index(L.ent)
+    if not rec or not read_hive_record(rec) then return false end         -- gone (despawned)
+    if t &gt;= (L.next_vis or 0) or not L.vis then L.vis, L.next_vis = vis_entry(L.ent), t + 1 end
+    local v = L.vis
+    local lo, hi, alo, ahi = nil, nil, nil, nil
+    if v then lo, hi = mask(v.rendered); alo, ahi = mask(v.applied) end
+    -- Same sanity check as the HUD: the two unwired masks (32, 33) are always hidden on a Hive Lord. Anything else
+    -- means the entry now belongs to another unit (the table was compacted): look it up again, write nothing.
+    local sane = hi and bitlib.band(hi, 3) == 3
+    if v and not sane then L.vis = nil end
+    for slot, pm in pairs(PLATE_MASK) do
+        local hp = i32(Z_OFF + slot * 4)
+        if hp &lt;= -PLATE_CON and not L.dead[slot] then L.dead[slot] = t end
+        local died, f = L.dead[slot], L.fix[slot]
+        if M.enabled and sane and died and not (f and f.gave_up) then
+            local applied_hidden = alo and mbit(alo, ahi, pm)
+            local shown = not mbit(lo, hi, pm) and not applied_hidden
+            if shown and t - died &gt;= FIX_DELAY then
+                f = f or {n = 0}
+                L.fix[slot] = f
+                if t &gt;= (f.next or 0) then
+                    if f.n &gt;= FIX_TRIES then
+                        f.gave_up = true
+                        writer(string.format(&#x27;entity 0x%X plate slot %d: still drawn after %d tries - giving up (%s)&#x27;,
+                            L.ent, slot, f.n, M.masks(v)))
+                    else
+                        f.n, f.next, f.at = f.n + 1, t + RETRY_S, t
+                        local ok = set_bit(v.override, pm) and set_bit(v.touched, pm)
+                        writer(string.format(&#x27;entity 0x%X plate slot %d: dead %.1f s but still drawn -&gt; hid model mask %d (%s), try %d (%s)&#x27;,
+-- … (42 lines in total; see the source page for all of it)</code></pre></details></li></ul></div>
   <div class="takeaway"><b>Key points</b><ol>
     <li>Anti-cheat looks for “foreign code and foreign access”; a mod is data that the game runs itself.</li>
     <li>Not blocked doesn't mean allowed. The line is what you do: only change your own screen, never affect others.</li>
