@@ -30,6 +30,30 @@ How can code that Arrowhead never wrote run inside Helldivers 2? How does a mod 
 - Client-side and visual only. The HUD only reads memory; Dead Plate Fix writes one "hide this plate" bit, the same one the game itself sets. Damage, collision, network traffic and the game's code are never touched.
 - Unofficial modification. Use at your own risk.
 
+### Why the HP can be off when you're not the host
+
+Short version: **the HUD shows the numbers your own game has, and when you're a client those are not always the host's numbers.** The mod can't fix that, because the host never sends the true values. Here is why.
+
+**Every player's game keeps its own copy of the Hive Lord's health.** Helldivers 2 doesn't stream HP from the host to everyone. Each machine simulates the shots and explosions it sees and subtracts the damage locally. The host only sends *results*: "this plate cracked", "this plate is destroyed", "the Hive Lord died". The main HP is never re-synced mid-fight. (The game only broadcasts a fresh main HP when something is healed or revived, which never happens to a Hive Lord.)
+
+So your copy drifts from the host's in three situations:
+
+| Situation | What happens on your machine | How big it gets |
+|---|---|---|
+| **Damage your game never simulated** (which sources exactly is not confirmed; likely some damage-over-time effects and things only the host simulates) | That damage is missing from your main HP, so it reads **higher** than the truth | Usually 0–2% of the 150,000. In a few fights we logged 15–20%, and once almost 90% |
+| **The same hit lands on a different zone** on your machine than on the host's | Main HP stays about right, but individual plates fall behind. When the host says a plate cracked or was destroyed, your copy snaps to it | Plates up to tens of thousands behind |
+| **You joined mid-fight** | You receive the main HP as a snapshot (sometimes stale), plates that were already cracked, and dead fins. Damage dealt to a plate before you joined is never sent, so it starts from full | The snapshot was up to ~51,000 off in one test |
+
+**What you see in the HUD:**
+- When the mod knows a number can only be an upper bound, it puts a **`<`** in front of it (for example `<40%` on a plate, and in front of the main HP). That happens after a mid-fight join, and for plates after the host has corrected one of them.
+- When the Hive Lord dies, the host's death event snaps your main HP to 0, so you may see a sudden drop at the end.
+- If you were there from the start and you're close to the fight, the bar is normally within a couple of percent.
+- As host, your game *is* the authority, so the numbers should be exact (the author always plays as a client, so this hasn't been tested).
+
+**Why not just ask the host?** A client mod can only read its own game's memory. The game has no message for "send me the true health", and making the mod send network requests would mean affecting other players' games, which these mods deliberately never do.
+
+For the full story, with the evidence from the logs, see [Chapter 15 of the tutorial](https://dctime.github.io/hd2-hive-lord-hud/#m15).
+
 ---
 
 # Helldivers 2 模組是怎麼運作的：以製作 Hive Lord HUD 為例
