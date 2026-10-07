@@ -249,7 +249,7 @@ pre code { overflow-wrap: normal; }
   <a href="#method">Method</a>
   <a href="#dropped">Tried and dropped</a>
   <a href="#pitfalls">Pitfalls</a>
-  <a href="#files">Files and deployment</a>
+  <a href="#files">What's in the download</a>
   <a href="#glossary">Glossary</a>
   <div class="tools"><button id="themeBtn">Light theme</button><a class="btn" href="zh.html" hreflang="zh-Hant" lang="zh-Hant">繁體中文</a></div>
 </nav>
@@ -393,7 +393,7 @@ pre code { overflow-wrap: normal; }
     <li><b>Every frame</b>, the engine calls a Lua function named <code>update</code>, plus a few other fixed entry points such as <code>render</code> and <code>shutdown</code>.</li>
     <li>The engine exposes a set of features Lua can call (for example, listing the objects in the scene or drawing things on screen), called the <code>stingray.*</code> API (Chapter 4).</li>
   </ul>
-  <p>The CPU mod measured it: the game's own Lua <code>update</code> takes almost no time per frame (close to 0 ms). In other words, the game itself barely uses this Lua environment, but it is <b>always on and gets called every frame</b>.</p>
+  <p>We measured it: the game's own Lua <code>update</code> takes almost no time per frame (close to 0 ms). In other words, the game itself barely uses this Lua environment, but it is <b>always on and gets called every frame</b>.</p>
 
   <h3>Why this is the way in for mods</h3>
   <p>Lua functions are stored in <b>global variables</b>, and global variables can be changed. <b>Because</b> every frame the engine “goes to the global variable <code>update</code>, takes the function there and calls it”, <b>as soon as</b> someone replaces <code>update</code> with their own function, the engine calls the new one on the next frame:</p>
@@ -459,7 +459,6 @@ LuaJIT cache: expanded 16384 KB / 8000 traces; flushes 0, growth 0; watcher on
 mods/cowboybingus/vanilla_plus_megapack: loaded
 mods/cowboybingus/mod_options_menu: loaded
 mods/hivelordhud/hive_lord_hud: loaded       ← our HUD
-mods/hd2cpu/cpu_profiler: loaded             ← CPU optimization mod
 mods/hivelordhud/plate_fix: loaded           ← Dead Plate Fix
 mods/cowboybingus/consistent_vaulting: not installed
 …</code></pre>
@@ -500,7 +499,7 @@ mods/cowboybingus/consistent_vaulting: not installed
     </ul>
   </div>
 
-  <div class="hudlog"><b>Hive Lord HUD at this point</b> For its first 69 versions, the HUD was actually packed into the same mod as our research tool Recon (Chapter 9), loaded by the Loader. Only at v70 did it split off and get its own resource name, <code>mods/hivelordhud/hive_lord_hud</code>. The later Dead Plate Fix is a second resource, <code>mods/hivelordhud/plate_fix</code>, and is a separate option you can tick on its own in Arsenal.</div>
+  <div class="hudlog"><b>Hive Lord HUD at this point</b> For its first 69 versions, the HUD was actually packed into the same mod as Recon, a research mod we wrote for ourselves and never released (Chapter 9 explains how it works), loaded by the Loader. Only at v70 did it split off and get its own resource name, <code>mods/hivelordhud/hive_lord_hud</code>. The later Dead Plate Fix is a second resource, <code>mods/hivelordhud/plate_fix</code>, and is a separate option you can tick on its own in Arsenal.</div>
   <div class="takeaway"><b>Key points</b><ol>
     <li>The Loader uses a patch file to override a vanilla script that “the game always loads at startup”, and keeps that script's original features.</li>
     <li>The Loader then scans every patch file, finds mods by their first line <code>-- HD2-Addon:</code>, and runs <code>require</code> on each one.</li>
@@ -611,7 +610,7 @@ kernel32.QueryPerformanceCounter(buf)                               -- call the 
 print(tonumber(buf[0]))                                             -- value of the high-resolution timer</code></pre>
   <p>With FFI, what a mod can do suddenly becomes “whatever a normal Windows program can do”:</p>
   <ul>
-    <li>CPU Thread Optimizer uses it to call the Windows thread API and decide which core each game thread runs on.</li>
+    <li>For example, it can call the Windows thread API to choose which CPU core each game thread runs on.</li>
     <li>The HUD uses it to call <code>ReadProcessMemory</code> and read the game process's own memory.</li>
   </ul>
 
@@ -971,11 +970,12 @@ records[6].main_hp -= 500;   // enemy #6 loses 500 HP</pre></div>
     <dt>dump</dt><dd>Saving a block of memory to a file exactly as it is.</dd>
     <dt>Signature (AOB)</dt><dd>A sequence of bytes to search for; it can contain wildcards.</dd>
   </dl></div>
+  <p>The star of this chapter, Recon, is a research mod we wrote for building the HUD and <b>never released</b>. The point is not the tool itself but its principle: anyone can write their own recon mod the same way.</p>
   <p>The idea behind Recon is simple: <b>make the observation tool itself a mod</b>. Like the HUD, it is loaded by the Loader and runs inside the game process (Chapter 3), and it uses FFI to read its own process's memory (Chapters 5 and 6) — so it never hits the anti-cheat check that blocks outside access.</p>
   <div class="tbl-wrap"><table>
     <thead><tr><th></th><th>FileDiver</th><th>Recon (HD2Recon)</th></tr></thead>
     <tbody>
-      <tr><td>What it is</td><td>An open-source HD2 resource unpacker (written in the Go programming language, <a href="https://github.com/xypwn/filediver">xypwn/filediver</a>), plus small tools we added</td><td>A Bingus addon we wrote ourselves (<code>src/recon.lua</code>, <code>mods/hd2cpu/recon</code>)</td></tr>
+      <tr><td>What it is</td><td>An open-source HD2 resource unpacker (written in the Go programming language, <a href="https://github.com/xypwn/filediver">xypwn/filediver</a>), plus small tools we added</td><td>A research mod we wrote for this project (never released)</td></tr>
       <tr><td>Where it runs</td><td>On your PC; the game doesn't need to be running</td><td>Inside the game process, loaded by the Loader just like the HUD</td></tr>
       <tr><td>What it looks at</td><td>Resource files under <code>data/</code> on disk, game data tables</td><td>Live memory (the unpacked game.dll, the heap)</td></tr>
       <tr><td>Output</td><td>Files: glb models, png, JSON, text reports</td><td><code>HD2Recon_&lt;time&gt;.log</code> and dump files</td></tr>
@@ -1478,7 +1478,7 @@ print('hi')</textarea>
   </div>
   <div class="tl" id="timeline">
     <div class="tl-day">Before Oct 2: laying the foundation</div>
-    <div class="tl-item" data-k="re"><span class="ver">Prep</span><b>CPU mod and the Recon tool</b>: while building the earlier CPU thread optimizer mod, the author had already worked out how to call the Windows API through LuaJIT FFI, built a read-only memory recon addon (AOB scanning, dumps, PE sections), set up the FileDiver toolchain (to decode the game's data tables) and a Ghidra + capstone disassembly environment, and studied how HUD+, a community HUD mod, uses Gui.</div>
+    <div class="tl-item" data-k="re"><span class="ver">Prep</span><b>Groundwork</b>: before starting the HUD, the author had already worked out how to call the Windows API through LuaJIT FFI, built Recon, a read-only memory recon mod (Chapter 9: AOB scanning, dumps, PE sections), set up the FileDiver toolchain (to decode the game's data tables) and a Ghidra + capstone disassembly environment, and studied how HUD+, a community HUD mod, uses Gui.</div>
 
     <div class="tl-day">Oct 3: from nothing to something</div>
     <div class="tl-item" data-k="re"><span class="ver">Offline</span><b>Decode the data offline first</b>: wrote a Go tool, <code>hive-lord-health-dumper</code>, that pulls the Hive Lord's HealthComponent out of the game's datalib: 38 zones, main HP 150,000, and HP / constitution / armour for every zone. Found that FileDiver's built-in struct definition was out of date (the real size is 22,096 bytes), and that the DLInstance header is 28 bytes, not 24.</div>
@@ -1532,7 +1532,7 @@ print('hi')</textarea>
       <ul>
         <li>With the game running, the Recon addon dumps the already-unpacked game.dll / helldivers2.exe.</li>
         <li>Python + capstone scans for accesses to a specific offset in seconds to find functions; Ghidra helps.</li>
-        <li>Every finding goes into notes such as <code>tools/research/hive_lord_armor_break.md</code>.</li>
+        <li>Every finding goes into research notes.</li>
       </ul>
     </div>
     <div class="card">
@@ -1561,8 +1561,8 @@ print('hi')</textarea>
     <div class="card">
       <h4>6. Build and deploy</h4>
       <ul>
-        <li><code>tools/build_hive_lord.py</code> produces a zip Arsenal can import (fixed GUID, one patch per option).</li>
-        <li><code>tools/deploy_hive_lord.sh</code> only overwrites slots that carry our addon marker, and refuses to deploy while the game is running.</li>
+        <li>A build script produces a zip Arsenal can import (fixed GUID, one patch per option).</li>
+        <li>A deploy script only overwrites slots that carry our addon marker, and refuses to deploy while the game is running.</li>
       </ul>
     </div>
   </div>
@@ -1607,20 +1607,17 @@ print('hi')</textarea>
 </section>
 <section id="files">
   <div class="sec-kicker">Reference</div>
-  <h2>Files, build and deploy</h2>
+  <h2>What's in the download</h2>
   <div class="tbl-wrap"><table>
-    <thead><tr><th>Path</th><th>Contents</th></tr></thead>
+    <thead><tr><th>File</th><th>Contents</th></tr></thead>
     <tbody>
-      <tr><td><code>src/hive_lord_hud.lua</code></td><td>The HUD itself (resource name <code>mods/hivelordhud/hive_lord_hud</code>). The file header has an index of sections: Hive Lord data, Detection, Live HP locator, Zone tracking, GUI, Per-frame worker, Settings, Install.</td></tr>
-      <tr><td><code>src/hive_lord_plate_fix.lua</code></td><td>Dead Plate Fix (<code>mods/hivelordhud/plate_fix</code>), works on its own.</td></tr>
-      <tr><td><code>src/hive_lord_diag.lua</code></td><td>Dev-only diagnostics addon (not shipped with releases): actor probe, zone changes, gore / network diagnostics.</td></tr>
-      <tr><td><code>tools/build_hive_lord.py</code></td><td>Packages <code>dist/HiveLordHUDv3.zip</code> and <code>dist/direct_hive_lord/</code>.</td></tr>
-      <tr><td><code>tools/deploy_hive_lord.sh</code></td><td>Deploys straight into the game folder (touches only its own slot).</td></tr>
-      <tr><td><code>tools/showcase_render.py</code>, <code>tools/icon_render.py</code></td><td>Render the showcase images and mod icon from the test environment.</td></tr>
-      <tr><td><code>tools/research/hive_lord_*.md / .json</code></td><td>Reversing notes on data tables, behaviour, break mechanics and networking.</td></tr>
-      <tr><td><code>docs/hive_lord_hud/CHANGELOG.md</code>, <code>DESCRIPTION.md</code></td><td>English changelog and description for the mod page.</td></tr>
+      <tr><td><code>Source/mods/hivelordhud/hive_lord_hud.lua</code></td><td>Full source of the HUD (resource name <code>mods/hivelordhud/hive_lord_hud</code>). The file header indexes its sections: Hive Lord data, Detection, Live HP locator, Zone tracking, GUI, Per-frame worker, Settings, Install, in the same order as the table in Chapter 12.</td></tr>
+      <tr><td><code>Source/mods/hivelordhud/plate_fix.lua</code></td><td>Full source of Dead Plate Fix (<code>mods/hivelordhud/plate_fix</code>); it works on its own.</td></tr>
+      <tr><td><code>options/core/…patch_0</code>, <code>options/platefix/…patch_0</code></td><td>One patch file per option: what the game actually loads (Chapter 14).</td></tr>
+      <tr><td><code>manifest.json</code>, <code>icon.png</code></td><td>The description file and icon the mod manager reads.</td></tr>
     </tbody>
   </table></div>
+  <p style="color:var(--sub);font-size:.9rem">The build and deploy scripts, offline tests, research notes and the development-only diagnostics mod used during development are not published. This document mentions them to explain the principles behind them.</p>
   <h4>Installation</h4>
   <ol>
     <li>Enable <b>Bingus Shared Loader</b> in Arsenal (optional: the Mod Options Menu from Vanilla Plus Megapack).</li>

@@ -249,7 +249,7 @@ pre code { overflow-wrap: normal; }
   <a href="#method">開發方法</a>
   <a href="#dropped">試過但放棄的</a>
   <a href="#pitfalls">踩過的坑</a>
-  <a href="#files">檔案與部署</a>
+  <a href="#files">下載的檔案</a>
   <a href="#glossary">用語小辭典</a>
   <div class="tools"><button id="themeBtn">切換淺色</button><a class="btn" href="index.html" hreflang="en" lang="en">English</a></div>
 </nav>
@@ -393,7 +393,7 @@ pre code { overflow-wrap: normal; }
     <li>引擎<b>每一幀</b>會呼叫一個叫 <code>update</code> 的 Lua 函式，還有 <code>render</code>、<code>shutdown</code> 等幾個固定的進入點。</li>
     <li>引擎開放了一組 Lua 可以呼叫的功能（例如列出場景裡的物件、在畫面上畫東西），叫 <code>stingray.*</code> API（第 4 章）。</li>
   </ul>
-  <p>CPU 模組量過：遊戲自己的 Lua <code>update</code> 每幀幾乎不花時間（接近 0 ms）。也就是說，遊戲本身幾乎不用這個 Lua 環境，但它<b>一直開著、每幀都在被呼叫</b>。</p>
+  <p>我們量過：遊戲自己的 Lua <code>update</code> 每幀幾乎不花時間（接近 0 ms）。也就是說，遊戲本身幾乎不用這個 Lua 環境，但它<b>一直開著、每幀都在被呼叫</b>。</p>
 
   <h3>為什麼這是模組的入口</h3>
   <p>Lua 的函式存在<b>全域變數</b>裡，而全域變數是可以被改的。<b>因為</b>引擎每幀是「去全域變數 <code>update</code> 裡拿函式來呼叫」，<b>所以</b>只要有人把 <code>update</code> 換成自己的函式，引擎下一幀就會呼叫新的那個：</p>
@@ -459,7 +459,6 @@ LuaJIT cache: expanded 16384 KB / 8000 traces; flushes 0, growth 0; watcher on
 mods/cowboybingus/vanilla_plus_megapack: loaded
 mods/cowboybingus/mod_options_menu: loaded
 mods/hivelordhud/hive_lord_hud: loaded       ← 我們的 HUD
-mods/hd2cpu/cpu_profiler: loaded             ← CPU 優化模組
 mods/hivelordhud/plate_fix: loaded           ← Dead Plate Fix
 mods/cowboybingus/consistent_vaulting: not installed
 …</code></pre>
@@ -500,7 +499,7 @@ mods/cowboybingus/consistent_vaulting: not installed
     </ul>
   </div>
 
-  <div class="hudlog"><b>Hive Lord HUD 此時</b>的前 69 個版本，其實是跟我們的研究工具 Recon（第 9 章）打包在同一個模組裡，由 Loader 載入。到 v70 才獨立出來，有了自己的資源名稱 <code>mods/hivelordhud/hive_lord_hud</code>。之後的 Dead Plate Fix 則是第二個資源 <code>mods/hivelordhud/plate_fix</code>，在 Arsenal 裡是另一個可以單獨勾選的選項。</div>
+  <div class="hudlog"><b>Hive Lord HUD 此時</b>的前 69 個版本，其實是跟我們自己寫的研究用偵察模組 Recon 打包在同一個模組裡（這個工具沒有公開，第 9 章會介紹它的原理），由 Loader 載入。到 v70 才獨立出來，有了自己的資源名稱 <code>mods/hivelordhud/hive_lord_hud</code>。之後的 Dead Plate Fix 則是第二個資源 <code>mods/hivelordhud/plate_fix</code>，在 Arsenal 裡是另一個可以單獨勾選的選項。</div>
   <div class="takeaway"><b>重點</b><ol>
     <li>Loader 用 patch 檔蓋掉一個「遊戲啟動一定會載入」的原版腳本，並保留它原本的功能。</li>
     <li>Loader 再掃描所有 patch 檔，用第一行 <code>-- HD2-Addon:</code> 找出模組，逐一 <code>require</code>。</li>
@@ -611,7 +610,7 @@ kernel32.QueryPerformanceCounter(buf)                               -- 呼叫 Wi
 print(tonumber(buf[0]))                                             -- 高精度計時器的值</code></pre>
   <p>有了 FFI，模組能做的事一下子變成「一般 Windows 程式能做的事」：</p>
   <ul>
-    <li>CPU Thread Optimizer 用它呼叫 Windows 的執行緒 API，決定遊戲執行緒跑在哪顆核心。</li>
+    <li>例如呼叫 Windows 的執行緒 API，決定遊戲的每條執行緒跑在哪顆 CPU 核心。</li>
     <li>HUD 用它呼叫 <code>ReadProcessMemory</code>，讀遊戲程序自己的記憶體。</li>
   </ul>
 
@@ -971,11 +970,12 @@ records[6].main_hp -= 500;   // 第 6 隻扣 500 血</pre></div>
     <dt>dump</dt><dd>把一段記憶體原封不動存成檔案。</dd>
     <dt>特徵碼（AOB）</dt><dd>一串用來搜尋的 bytes，可以含萬用字元。</dd>
   </dl></div>
+  <p>這一章的主角 Recon，是我們為了做 HUD 自己寫的研究用模組，<b>沒有公開發佈</b>。重點不是這個工具本身，而是它的原理：任何人都可以照同樣的方法，寫一個自己的偵察模組。</p>
   <p>Recon 的原理很簡單：<b>把觀察工具本身做成模組</b>。它跟 HUD 一樣由 Loader 載入、在遊戲程序裡執行（第 3 章），用 FFI 讀自己程序的記憶體（第 5、6 章），所以不會碰到反作弊攔截外部存取的那一關。</p>
   <div class="tbl-wrap"><table>
     <thead><tr><th></th><th>FileDiver</th><th>Recon（HD2Recon）</th></tr></thead>
     <tbody>
-      <tr><td>是什麼</td><td>開源的 HD2 資源解包工具（用 Go 這種程式語言寫的，<a href="https://github.com/xypwn/filediver">xypwn/filediver</a>），我們再加了自己的小工具</td><td>我們自己寫的 Bingus addon（<code>src/recon.lua</code>，<code>mods/hd2cpu/recon</code>）</td></tr>
+      <tr><td>是什麼</td><td>開源的 HD2 資源解包工具（用 Go 這種程式語言寫的，<a href="https://github.com/xypwn/filediver">xypwn/filediver</a>），我們再加了自己的小工具</td><td>我們為這個專案自己寫的研究用模組（沒有公開發佈）</td></tr>
       <tr><td>在哪裡執行</td><td>你的電腦上，遊戲不用開</td><td>遊戲程序裡面，跟 HUD 一樣由 Loader 載入</td></tr>
       <tr><td>看的是</td><td>硬碟上 <code>data/</code> 的資源檔、遊戲資料表</td><td>執行中的記憶體（解殼後的 game.dll、堆積）</td></tr>
       <tr><td>輸出</td><td>檔案：glb 模型、png、JSON、文字報表</td><td><code>HD2Recon_&lt;時間&gt;.log</code> 和 dump 檔</td></tr>
@@ -1478,7 +1478,7 @@ print('hi')</textarea>
   </div>
   <div class="tl" id="timeline">
     <div class="tl-day">10/02 之前：打地基</div>
-    <div class="tl-item" data-k="re"><span class="ver">前置</span><b>CPU 模組與 Recon 偵察工具</b>：先前做 CPU 執行緒優化模組時，已經建好 LuaJIT FFI 呼叫 Windows API 的方式、唯讀記憶體偵察 addon（AOB 掃描、dump、PE 區段）、FileDiver 工具鏈（解遊戲資料表）、Ghidra 與 capstone 反組譯環境，也研究過 HUD+ 這個社群 HUD 模組的 Gui 用法。</div>
+    <div class="tl-item" data-k="re"><span class="ver">前置</span><b>開始之前的準備</b>：做 HUD 之前，作者已經準備好幾樣東西：用 LuaJIT FFI 呼叫 Windows API 的方式、一個只讀的記憶體偵察模組 Recon（第 9 章：AOB 掃描、dump、PE 區段）、FileDiver 工具鏈（解遊戲資料表）、Ghidra 與 capstone 反組譯環境，也研究過 HUD+ 這個社群 HUD 模組的 Gui 用法。</div>
 
     <div class="tl-day">10/03：從無到有</div>
     <div class="tl-item" data-k="re"><span class="ver">離線</span><b>先離線把資料解完</b>：寫了 Go 工具 <code>hive-lord-health-dumper</code>，從遊戲的 datalib 解出 Hive Lord 的 HealthComponent：38 區、主血 150,000、每區 HP / 構造值 / 裝甲。發現 FileDiver 內建的結構定義已過時（實際大小 22,096 bytes），以及 DLInstance header 是 28 bytes 不是 24。</div>
@@ -1532,7 +1532,7 @@ print('hi')</textarea>
       <ul>
         <li>遊戲跑起來後用 Recon addon 把已解殼的 game.dll / helldivers2.exe dump 出來。</li>
         <li>用 Python + capstone 秒級掃描特定偏移量的存取，找出函式；Ghidra 輔助。</li>
-        <li>所有發現寫進 <code>tools/research/hive_lord_armor_break.md</code> 等筆記。</li>
+        <li>所有發現都寫進研究筆記。</li>
       </ul>
     </div>
     <div class="card">
@@ -1561,8 +1561,8 @@ print('hi')</textarea>
     <div class="card">
       <h4>6. 建置與部署</h4>
       <ul>
-        <li><code>tools/build_hive_lord.py</code> 產生 Arsenal 可匯入的 zip（固定 GUID，選項各自一個 patch）。</li>
-        <li><code>tools/deploy_hive_lord.sh</code> 只覆寫含有我們 addon 標記的 slot，遊戲執行中會拒絕部署。</li>
+        <li>打包腳本產生 Arsenal 可匯入的 zip（固定 GUID，選項各自一個 patch）。</li>
+        <li>部署腳本只覆寫含有我們 addon 標記的 slot，遊戲執行中會拒絕部署。</li>
       </ul>
     </div>
   </div>
@@ -1607,20 +1607,17 @@ print('hi')</textarea>
 </section>
 <section id="files">
   <div class="sec-kicker">參考</div>
-  <h2>檔案、建置與部署</h2>
+  <h2>下載的 zip 裡有什麼</h2>
   <div class="tbl-wrap"><table>
-    <thead><tr><th>路徑</th><th>內容</th></tr></thead>
+    <thead><tr><th>檔案</th><th>內容</th></tr></thead>
     <tbody>
-      <tr><td><code>src/hive_lord_hud.lua</code></td><td>HUD 本體（資源名 <code>mods/hivelordhud/hive_lord_hud</code>）。檔頭有各段落索引：Hive Lord data、Detection、Live HP locator、Zone tracking、GUI、Per-frame worker、Settings、Install。</td></tr>
-      <tr><td><code>src/hive_lord_plate_fix.lua</code></td><td>Dead Plate Fix（<code>mods/hivelordhud/plate_fix</code>），可單獨運作。</td></tr>
-      <tr><td><code>src/hive_lord_diag.lua</code></td><td>開發用診斷 addon（不隨發行版附帶）：actor probe、區域變化、gore / 網路診斷。</td></tr>
-      <tr><td><code>tools/build_hive_lord.py</code></td><td>打包 <code>dist/HiveLordHUDv3.zip</code> 與 <code>dist/direct_hive_lord/</code>。</td></tr>
-      <tr><td><code>tools/deploy_hive_lord.sh</code></td><td>直接部署到遊戲資料夾（只動自己的 slot）。</td></tr>
-      <tr><td><code>tools/showcase_render.py</code>、<code>tools/icon_render.py</code></td><td>從測試環境渲染展示圖與模組圖示。</td></tr>
-      <tr><td><code>tools/research/hive_lord_*.md / .json</code></td><td>資料表、行為、破壞機制、網路的逆向筆記。</td></tr>
-      <tr><td><code>docs/hive_lord_hud/CHANGELOG.md</code>、<code>DESCRIPTION.md</code></td><td>模組頁面用的英文更新紀錄與說明。</td></tr>
+      <tr><td><code>Source/mods/hivelordhud/hive_lord_hud.lua</code></td><td>HUD 本體的完整原始碼（資源名 <code>mods/hivelordhud/hive_lord_hud</code>）。檔頭有各段落索引：Hive Lord data、Detection、Live HP locator、Zone tracking、GUI、Per-frame worker、Settings、Install，順序剛好對應第 12 章的表。</td></tr>
+      <tr><td><code>Source/mods/hivelordhud/plate_fix.lua</code></td><td>Dead Plate Fix 的完整原始碼（<code>mods/hivelordhud/plate_fix</code>），可單獨運作。</td></tr>
+      <tr><td><code>options/core/…patch_0</code>、<code>options/platefix/…patch_0</code></td><td>兩個選項各自的 patch 檔，也就是遊戲實際載入的東西（第 14 章）。</td></tr>
+      <tr><td><code>manifest.json</code>、<code>icon.png</code></td><td>模組管理器讀的描述檔與圖示。</td></tr>
     </tbody>
   </table></div>
+  <p style="color:var(--sub);font-size:.9rem">開發時用的打包與部署腳本、離線測試、研究筆記和開發用的診斷模組沒有公開。這份文件提到它們，是為了說明背後的原理。</p>
   <h4>安裝</h4>
   <ol>
     <li>在 Arsenal 啟用 <b>Bingus Shared Loader</b>（選配：Vanilla Plus Megapack 的 Mod Options Menu）。</li>
